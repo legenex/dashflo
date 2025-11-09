@@ -23,6 +23,91 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Data source is required' }, { status: 400 });
     }
 
+    // Helper function to evaluate conditions for CASE WHEN
+    const evaluateCondition = (rowData, condition, existingMetrics = {}) => {
+      const { field, operator, value } = condition;
+      
+      // Look for the field in rowData first, then in existingMetrics
+      let fieldValue = rowData[field];
+      if (fieldValue === undefined && existingMetrics[field] !== undefined) {
+        fieldValue = existingMetrics[field];
+      }
+      
+      if (fieldValue === undefined || fieldValue === null) {
+        return false;
+      }
+      
+      const compareValue = value;
+      
+      switch (operator) {
+        case 'equals':
+          return String(fieldValue).toLowerCase() === String(compareValue).toLowerCase();
+        case 'not_equals':
+          return String(fieldValue).toLowerCase() !== String(compareValue).toLowerCase();
+        case 'greater_than':
+          return Number(fieldValue) > Number(compareValue);
+        case 'less_than':
+          return Number(fieldValue) < Number(compareValue);
+        case 'greater_or_equal':
+          return Number(fieldValue) >= Number(compareValue);
+        case 'less_or_equal':
+          return Number(fieldValue) <= Number(compareValue);
+        case 'contains':
+          return String(fieldValue).toLowerCase().includes(String(compareValue).toLowerCase());
+        default:
+          return false;
+      }
+    };
+    
+    // Helper function to evaluate simple formula expressions
+    const evaluateSimpleFormula = (formulaString, rowData, existingMetrics = {}) => {
+      if (!formulaString || formulaString.trim() === '') {
+        return 0;
+      }
+      
+      let evalFormula = formulaString;
+      const fieldMatches = formulaString.match(/\{([^}]+)\}/g);
+      
+      if (fieldMatches) {
+        fieldMatches.forEach((match) => {
+          const referencedField = match.slice(1, -1);
+          
+          // Look for value in rowData, then in existingMetrics
+          let value = rowData[referencedField];
+          if (value === undefined && existingMetrics[referencedField] !== undefined) {
+            value = existingMetrics[referencedField];
+          }
+          
+          // Case-insensitive fallback
+          if (value === undefined) {
+            const allKeys = Object.keys(rowData).concat(Object.keys(existingMetrics));
+            const matchedKey = allKeys.find(k => k.toLowerCase() === referencedField.toLowerCase());
+            if (matchedKey) {
+              value = (rowData[matchedKey] !== undefined) ? rowData[matchedKey] : existingMetrics[matchedKey];
+            }
+          }
+          
+          const numValue = value !== undefined && value !== null ? Number(value) : 0;
+          evalFormula = evalFormula.replace(match, numValue.toString());
+        });
+      }
+      
+      // Clean formula to allow only numbers and operators
+      const cleanFormula = evalFormula.replace(/[^0-9+\-*/(). ]/g, '');
+      
+      if (cleanFormula.trim() === '') {
+        return 0;
+      }
+      
+      try {
+        const result = new Function(`return ${cleanFormula}`)();
+        return Number.isFinite(result) ? result : 0;
+      } catch (error) {
+        console.error('Error evaluating formula:', error);
+        return 0;
+      }
+    };
+
     // Fetch all metric definitions
     const allMetricDefinitions = await base44.asServiceRole.entities.MetricDefinition.list();
     
@@ -61,37 +146,88 @@ Deno.serve(async (req) => {
       
       explicitlyRequestedCalculatedFields.forEach(cf => {
         console.log(`\nCalculated Field: ${cf.name}`);
-        console.log(`Formula: ${cf.definition.formula}`);
         
-        const fieldMatches = cf.definition.formula.match(/\{([^}]+)\}/g);
-        
-        if (fieldMatches) {
-          console.log(`Found ${fieldMatches.length} field references:`, fieldMatches);
-          
-          fieldMatches.forEach(match => {
-            const referencedName = match.slice(1, -1);
-            console.log(`  Looking for dependency: "${referencedName}"`);
-            
-            const dependencyMetric = allMetricDefinitions.find(m => {
-              if (m.type === 'aggregation') {
-                const alias = m.definition?.alias || m.name;
-                return alias === referencedName || m.name === referencedName;
-              }
-              return false;
-            });
-            
-            if (dependencyMetric) {
-              if (!requiredMetricIds.has(dependencyMetric.id)) {
-                console.log(`  ✓ Auto-adding dependency: ${dependencyMetric.name} (${dependencyMetric.id})`);
+        // Handle dependencies for both 'simple' and 'case_when' formula types
+        if (cf.definition.formula_type === 'case_when') {
+          console.log(`Formula Type: CASE WHEN`);
+          const caseStatements = cf.definition.case_statements || [];
+          const elseExpression = cf.definition.else_expression || '';
+
+          caseStatements.forEach(stmt => {
+            if (stmt.when_condition?.field) {
+              const referencedName = stmt.when_condition.field;
+              console.log(`  Condition dependency: "${referencedName}"`);
+              const dependencyMetric = allMetricDefinitions.find(m => m.type === 'aggregation' && (m.definition?.alias === referencedName || m.name === referencedName));
+              if (dependencyMetric && !requiredMetricIds.has(dependencyMetric.id)) {
+                console.log(`  ✓ Auto-adding condition dependency: ${dependencyMetric.name} (${dependencyMetric.id})`);
                 requiredMetricIds.add(dependencyMetric.id);
                 libraryMetrics.push(dependencyMetric);
-              } else {
-                console.log(`  ✓ Dependency already included: ${dependencyMetric.name}`);
               }
-            } else {
-              console.log(`  ✗ WARNING: Dependency "${referencedName}" not found in metrics library!`);
+            }
+            if (stmt.then_expression) {
+              const fieldMatches = stmt.then_expression.match(/\{([^}]+)\}/g);
+              if (fieldMatches) {
+                fieldMatches.forEach(match => {
+                  const referencedName = match.slice(1, -1);
+                  console.log(`  THEN dependency: "${referencedName}"`);
+                  const dependencyMetric = allMetricDefinitions.find(m => m.type === 'aggregation' && (m.definition?.alias === referencedName || m.name === referencedName));
+                  if (dependencyMetric && !requiredMetricIds.has(dependencyMetric.id)) {
+                    console.log(`  ✓ Auto-adding THEN dependency: ${dependencyMetric.name} (${dependencyMetric.id})`);
+                    requiredMetricIds.add(dependencyMetric.id);
+                    libraryMetrics.push(dependencyMetric);
+                  }
+                });
+              }
             }
           });
+          if (elseExpression) {
+            const fieldMatches = elseExpression.match(/\{([^}]+)\}/g);
+            if (fieldMatches) {
+              fieldMatches.forEach(match => {
+                const referencedName = match.slice(1, -1);
+                console.log(`  ELSE dependency: "${referencedName}"`);
+                const dependencyMetric = allMetricDefinitions.find(m => m.type === 'aggregation' && (m.definition?.alias === referencedName || m.name === referencedName));
+                if (dependencyMetric && !requiredMetricIds.has(dependencyMetric.id)) {
+                  console.log(`  ✓ Auto-adding ELSE dependency: ${dependencyMetric.name} (${dependencyMetric.id})`);
+                  requiredMetricIds.add(dependencyMetric.id);
+                  libraryMetrics.push(dependencyMetric);
+                }
+              });
+            }
+          }
+
+        } else { // 'simple' formula type
+          console.log(`Formula: ${cf.definition.formula}`);
+          const fieldMatches = cf.definition.formula.match(/\{([^}]+)\}/g);
+          
+          if (fieldMatches) {
+            console.log(`Found ${fieldMatches.length} field references:`, fieldMatches);
+            
+            fieldMatches.forEach(match => {
+              const referencedName = match.slice(1, -1);
+              console.log(`  Looking for dependency: "${referencedName}"`);
+              
+              const dependencyMetric = allMetricDefinitions.find(m => {
+                if (m.type === 'aggregation') {
+                  const alias = m.definition?.alias || m.name;
+                  return alias === referencedName || m.name === referencedName;
+                }
+                return false;
+              });
+              
+              if (dependencyMetric) {
+                if (!requiredMetricIds.has(dependencyMetric.id)) {
+                  console.log(`  ✓ Auto-adding dependency: ${dependencyMetric.name} (${dependencyMetric.id})`);
+                  requiredMetricIds.add(dependencyMetric.id);
+                  libraryMetrics.push(dependencyMetric);
+                } else {
+                  console.log(`  ✓ Dependency already included: ${dependencyMetric.name}`);
+                }
+              } else {
+                console.log(`  ✗ WARNING: Dependency "${referencedName}" not found in metrics library!`);
+              }
+            });
+          }
         }
       });
     }
@@ -177,7 +313,7 @@ Deno.serve(async (req) => {
     });
     console.log(`Total calculated fields: ${allCalculatedFields.length}`);
     allCalculatedFields.forEach((cf, i) => {
-      console.log(`  ${i+1}. "${cf.name}" = ${cf.formula} (Order: ${cf._order}, MetricId: ${cf._metricId})`);
+      console.log(`  ${i+1}. "${cf.name}" (Type: ${cf.formula_type || 'simple'})`);
     });
 
     const allSyncConfigs = await base44.asServiceRole.entities.SyncConfiguration.list();
@@ -612,76 +748,73 @@ Deno.serve(async (req) => {
         
         effectiveQueryConfig.calculated_fields.forEach((calcField, cfIndex) => {
           const fieldName = calcField.name;
-          const formula = calcField.formula;
+          const formulaType = calcField.formula_type || 'simple';
           const _order = calcField._order;
           const _metricId = calcField._metricId;
           
-          console.log(`\n--- Calculated Field ${cfIndex + 1}: "${fieldName}" ---`);
-          console.log(`Formula: ${formula}`);
-          console.log(`Available result keys:`, Object.keys(result));
+          console.log(`\n--- Calculated Field ${cfIndex + 1}: "${fieldName}" (Type: ${formulaType}) ---`);
           
-          if (!fieldName || !formula) {
-            console.log(`✗ Missing name or formula, skipping`);
+          if (!fieldName) {
+            console.log(`✗ Missing name, skipping`);
             return;
           }
 
           try {
-            let evalFormula = formula;
-            const fieldMatches = formula.match(/\{([^}]+)\}/g);
+            let calcResult = 0;
             
-            console.log(`Field references in formula:`, fieldMatches);
-            
-            if (fieldMatches) {
-              fieldMatches.forEach((match) => {
-                const referencedField = match.slice(1, -1);
-                console.log(`\n  Looking for: "${referencedField}"`);
+            if (formulaType === 'case_when') {
+              // Handle CASE WHEN logic
+              const caseStatements = calcField.case_statements || [];
+              const elseExpression = calcField.else_expression || '';
+              
+              console.log(`CASE WHEN with ${caseStatements.length} conditions`);
+              
+              let matched = false;
+              
+              for (const caseStmt of caseStatements) {
+                const { when_condition, then_expression } = caseStmt;
                 
-                let value = result[referencedField];
-                let foundKey = referencedField;
-                
-                if (value === undefined) {
-                  const keys = Object.keys(result);
-                  const matchedKey = keys.find(k => k.toLowerCase() === referencedField.toLowerCase());
-                  
-                  if (matchedKey) {
-                    value = result[matchedKey];
-                    foundKey = matchedKey;
-                    console.log(`  ✓ Case-insensitive match: "${referencedField}" -> "${matchedKey}" = ${value}`);
-                  } else {
-                    console.log(`  ✗ NO MATCH FOUND!`);
-                    console.log(`  Available keys: ${keys.join(', ')}`);
-                    value = 0;
-                  }
-                } else {
-                  console.log(`  ✓ Exact match: "${referencedField}" = ${value}`);
+                if (!when_condition || !then_expression) {
+                  console.log(`  WARNING: Malformed CASE statement, skipping.`);
+                  continue;
                 }
+
+                console.log(`  Checking condition: ${when_condition.field} ${when_condition.operator} ${when_condition.value}`);
                 
-                const numValue = value !== undefined && value !== null ? Number(value) : 0;
-                console.log(`  Replacing ${match} with ${numValue}`);
-                evalFormula = evalFormula.replace(match, numValue.toString());
-              });
-            }
-            
-            console.log(`\nFormula after substitution: ${evalFormula}`);
-            
-            const cleanFormula = evalFormula.replace(/[^0-9+\-*/(). ]/g, '');
-            
-            if (cleanFormula.trim() === '') {
-              result[fieldName] = 0;
-              console.log(`✗ Empty formula, set to 0`);
-              resultOrder[fieldName] = _order !== undefined ? _order : 10000 + cfIndex;
-              resultVisible[fieldName] = orderedMetricIds.includes(_metricId);
-              return;
-            }
-            
-            console.log(`Evaluating: ${cleanFormula}`);
-            let calcResult = new Function(`return ${cleanFormula}`)();
-            
-            if (!Number.isFinite(calcResult)) {
-              calcResult = 0;
-              console.log(`✗ Result not finite, set to 0`);
-            } else {
-              console.log(`✓ Result: ${calcResult}`);
+                const isConditionMet = evaluateCondition({}, when_condition, result); // pass result as existingMetrics
+                
+                console.log(`  Condition met: ${isConditionMet}`);
+                
+                if (isConditionMet) {
+                  console.log(`  ✓ Evaluating THEN: ${then_expression}`);
+                  calcResult = evaluateSimpleFormula(then_expression, {}, result); // pass result as existingMetrics
+                  matched = true;
+                  break;
+                }
+              }
+              
+              if (!matched && elseExpression) {
+                console.log(`  No condition matched, evaluating ELSE: ${elseExpression}`);
+                calcResult = evaluateSimpleFormula(elseExpression, {}, result); // pass result as existingMetrics
+              } else if (!matched) {
+                console.log(`  No condition matched and no ELSE expression`);
+                calcResult = 0;
+              }
+              
+              console.log(`  ✓ CASE WHEN Result: ${calcResult}`);
+              
+            } else { // 'simple' formula type (existing logic)
+              const formula = calcField.formula;
+              
+              if (!formula) {
+                console.log(`✗ Missing formula, skipping`);
+                return;
+              }
+              
+              console.log(`Formula: ${formula}`);
+              console.log(`Available result keys:`, Object.keys(result));
+              
+              calcResult = evaluateSimpleFormula(formula, {}, result);
             }
             
             result[fieldName] = calcResult;
@@ -689,7 +822,7 @@ Deno.serve(async (req) => {
             resultOrder[fieldName] = _order !== undefined ? _order : 10000 + cfIndex;
             resultVisible[fieldName] = orderedMetricIds.includes(_metricId);
           } catch (error) {
-            console.error(`✗ Error:`, error);
+            console.error(`✗ Error processing calculated field "${fieldName}":`, error);
             result[fieldName] = 0;
             resultOrder[fieldName] = _order !== undefined ? _order : 10000 + cfIndex;
             resultVisible[fieldName] = orderedMetricIds.includes(_metricId);
@@ -759,59 +892,60 @@ Deno.serve(async (req) => {
         if (effectiveQueryConfig.calculated_fields && effectiveQueryConfig.calculated_fields.length > 0) {
           effectiveQueryConfig.calculated_fields.forEach(calcField => {
             const fieldName = calcField.name;
-            const formula = calcField.formula;
+            const formulaType = calcField.formula_type || 'simple';
             const _order = calcField._order;
             const _metricId = calcField._metricId;
             
-            if (fieldName && formula) {
-              try {
-                let evalFormula = formula;
-                const fieldMatches = formula.match(/\{([^}]+)\}/g);
+            if (!fieldName) return;
+
+            try {
+              let calcResult = 0;
+              
+              if (formulaType === 'case_when') {
+                // Handle CASE WHEN for grouped data
+                const caseStatements = calcField.case_statements || [];
+                const elseExpression = calcField.else_expression || '';
                 
-                if (fieldMatches) {
-                  fieldMatches.forEach(match => {
-                    const referencedField = match.slice(1, -1);
-                    let value = result[referencedField];
-                    
-                    if (value === undefined) {
-                      const keys = Object.keys(result);
-                      const matchedKey = keys.find(k => k.toLowerCase() === referencedField.toLowerCase());
-                      if (matchedKey) {
-                        value = result[matchedKey];
-                      } else {
-                        value = 0;
-                      }
-                    }
-                    
-                    const numValue = value !== undefined && value !== null ? Number(value) : 0;
-                    evalFormula = evalFormula.replace(match, numValue.toString());
-                  });
+                let matched = false;
+                
+                for (const caseStmt of caseStatements) {
+                  const { when_condition, then_expression } = caseStmt;
+
+                  if (!when_condition || !then_expression) {
+                    continue;
+                  }
+                  
+                  const isConditionMet = evaluateCondition({}, when_condition, result);
+                  
+                  if (isConditionMet) {
+                    calcResult = evaluateSimpleFormula(then_expression, {}, result);
+                    matched = true;
+                    break;
+                  }
                 }
                 
-                evalFormula = evalFormula.replace(/[^0-9+\-*/(). ]/g, '');
-                
-                if (evalFormula.trim() === '') {
-                  result[fieldName] = 0;
-                  resultOrder[fieldName] = _order !== undefined ? _order : 10000;
-                  resultVisible[fieldName] = orderedMetricIds.includes(_metricId);
-                  return;
-                }
-                
-                let calcResult = new Function(`return ${evalFormula}`)();
-                
-                if (!Number.isFinite(calcResult)) {
+                if (!matched && elseExpression) {
+                  calcResult = evaluateSimpleFormula(elseExpression, {}, result);
+                } else if (!matched) {
                   calcResult = 0;
                 }
                 
-                result[fieldName] = calcResult;
-                resultOrder[fieldName] = _order !== undefined ? _order : 10000;
-                resultVisible[fieldName] = orderedMetricIds.includes(_metricId);
-              } catch (error) {
-                console.error(`Error calculating field ${fieldName}:`, error);
-                result[fieldName] = 0;
-                resultOrder[fieldName] = _order !== undefined ? _order : 10000;
-                resultVisible[fieldName] = orderedMetricIds.includes(_metricId);
+              } else { // 'simple' formula for grouped data (existing logic)
+                const formula = calcField.formula;
+                
+                if (!formula) return;
+                
+                calcResult = evaluateSimpleFormula(formula, {}, result);
               }
+              
+              result[fieldName] = calcResult;
+              resultOrder[fieldName] = _order !== undefined ? _order : 10000;
+              resultVisible[fieldName] = orderedMetricIds.includes(_metricId);
+            } catch (error) {
+              console.error(`Error calculating field ${fieldName} for group ${groupValue}:`, error);
+              result[fieldName] = 0;
+              resultOrder[fieldName] = _order !== undefined ? _order : 10000;
+              resultVisible[fieldName] = orderedMetricIds.includes(_metricId);
             }
           });
         }
