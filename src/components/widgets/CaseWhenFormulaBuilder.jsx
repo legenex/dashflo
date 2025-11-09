@@ -21,7 +21,8 @@ export default function CaseWhenFormulaBuilder({
         when_condition: {
           field: '',
           operator: 'equals',
-          value: ''
+          value: '',
+          value_type: 'static' // New field: 'static' or 'field'
         },
         then_expression: ''
       }
@@ -37,6 +38,12 @@ export default function CaseWhenFormulaBuilder({
   const updateWhenCondition = (index, key, value) => {
     const newStatements = [...caseStatements];
     newStatements[index].when_condition[key] = value;
+    
+    // If changing value_type, reset the value
+    if (key === 'value_type') {
+      newStatements[index].when_condition.value = '';
+    }
+    
     onChange({ caseStatements: newStatements, elseExpression });
   };
 
@@ -58,7 +65,7 @@ export default function CaseWhenFormulaBuilder({
           <p className="font-semibold mb-1">CASE WHEN Logic</p>
           <p className="text-xs text-blue-400">
             Define conditions that check your data and return different values. The first matching WHEN condition will be used. 
-            If no condition matches, the ELSE expression is returned.
+            If no condition matches, the ELSE expression is returned. You can compare against static values or other fields.
           </p>
         </div>
       </div>
@@ -97,94 +104,148 @@ export default function CaseWhenFormulaBuilder({
             </Button>
           </div>
         ) : (
-          caseStatements.map((statement, index) => (
-            <Card key={index} className="glass-card border-white/10">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">
-                    WHEN #{index + 1}
-                  </Badge>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeWhenClause(index)}
-                    className="text-red-400 hover:bg-red-500/20"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                {/* Condition */}
-                <div className="space-y-2">
-                  <Label className="text-white text-xs">When this condition is true:</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <div>
-                      <Select
-                        value={statement.when_condition.field}
-                        onValueChange={(v) => updateWhenCondition(index, 'field', v)}
-                      >
-                        <SelectTrigger className="glass-card border-white/10 text-white">
-                          <SelectValue placeholder="Select field" />
-                        </SelectTrigger>
-                        <SelectContent className="glass-card border-white/10 max-h-64">
-                          {availableFields.map(field => (
-                            <SelectItem key={field} value={field} className="text-white">
-                              {field}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Select
-                        value={statement.when_condition.operator}
-                        onValueChange={(v) => updateWhenCondition(index, 'operator', v)}
-                      >
-                        <SelectTrigger className="glass-card border-white/10 text-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="glass-card border-white/10">
-                          <SelectItem value="equals" className="text-white">Equals (=)</SelectItem>
-                          <SelectItem value="not_equals" className="text-white">Not Equals (≠)</SelectItem>
-                          <SelectItem value="greater_than" className="text-white">Greater Than (&gt;)</SelectItem>
-                          <SelectItem value="less_than" className="text-white">Less Than (&lt;)</SelectItem>
-                          <SelectItem value="greater_or_equal" className="text-white">Greater or Equal (≥)</SelectItem>
-                          <SelectItem value="less_or_equal" className="text-white">Less or Equal (≤)</SelectItem>
-                          <SelectItem value="contains" className="text-white">Contains</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Input
-                        placeholder="Value"
-                        value={statement.when_condition.value}
-                        onChange={(e) => updateWhenCondition(index, 'value', e.target.value)}
-                        className="glass-card border-white/10 text-white"
-                      />
-                    </div>
+          caseStatements.map((statement, index) => {
+            const valueType = statement.when_condition.value_type || 'static';
+            
+            return (
+              <Card key={index} className="glass-card border-white/10">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">
+                      WHEN #{index + 1}
+                    </Badge>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeWhenClause(index)}
+                      className="text-red-400 hover:bg-red-500/20"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
-                </div>
 
-                {/* THEN Expression */}
-                <div className="space-y-2">
-                  <Label className="text-white text-xs">Then return this value:</Label>
-                  <Textarea
-                    placeholder="e.g., Net Profit - Payout"
-                    value={statement.then_expression}
-                    onChange={(e) => updateThenExpression(index, e.target.value)}
-                    className="glass-card border-white/10 text-white font-mono text-sm"
-                    rows={2}
-                  />
-                  <p className="text-xs text-gray-400">
-                    You can use field names and basic math: +, -, *, /, ( )
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                  {/* Condition */}
+                  <div className="space-y-2">
+                    <Label className="text-white text-xs">When this condition is true:</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                      <div>
+                        <Select
+                          value={statement.when_condition.field}
+                          onValueChange={(v) => updateWhenCondition(index, 'field', v)}
+                        >
+                          <SelectTrigger className="glass-card border-white/10 text-white">
+                            <SelectValue placeholder="Select field" />
+                          </SelectTrigger>
+                          <SelectContent className="glass-card border-white/10 max-h-64">
+                            {availableFields.length === 0 ? (
+                              <div className="p-2 text-center text-gray-400 text-xs">
+                                No fields available
+                              </div>
+                            ) : (
+                              availableFields.map(field => (
+                                <SelectItem key={field} value={field} className="text-white">
+                                  {field}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Select
+                          value={statement.when_condition.operator}
+                          onValueChange={(v) => updateWhenCondition(index, 'operator', v)}
+                        >
+                          <SelectTrigger className="glass-card border-white/10 text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="glass-card border-white/10">
+                            <SelectItem value="equals" className="text-white">Equals (=)</SelectItem>
+                            <SelectItem value="not_equals" className="text-white">Not Equals (≠)</SelectItem>
+                            <SelectItem value="greater_than" className="text-white">Greater Than (&gt;)</SelectItem>
+                            <SelectItem value="less_than" className="text-white">Less Than (&lt;)</SelectItem>
+                            <SelectItem value="greater_or_equal" className="text-white">Greater or Equal (≥)</SelectItem>
+                            <SelectItem value="less_or_equal" className="text-white">Less or Equal (≤)</SelectItem>
+                            <SelectItem value="contains" className="text-white">Contains</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Select
+                          value={valueType}
+                          onValueChange={(v) => updateWhenCondition(index, 'value_type', v)}
+                        >
+                          <SelectTrigger className="glass-card border-white/10 text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="glass-card border-white/10">
+                            <SelectItem value="static" className="text-white">Static Value</SelectItem>
+                            <SelectItem value="field" className="text-white">Field Reference</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        {valueType === 'field' ? (
+                          <Select
+                            value={statement.when_condition.value}
+                            onValueChange={(v) => updateWhenCondition(index, 'value', v)}
+                          >
+                            <SelectTrigger className="glass-card border-white/10 text-white">
+                              <SelectValue placeholder="Select field" />
+                            </SelectTrigger>
+                            <SelectContent className="glass-card border-white/10 max-h-64">
+                              {availableFields.length === 0 ? (
+                                <div className="p-2 text-center text-gray-400 text-xs">
+                                  No fields available
+                                </div>
+                              ) : (
+                                availableFields.map(field => (
+                                  <SelectItem key={field} value={field} className="text-white">
+                                    {field}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            placeholder="Value"
+                            value={statement.when_condition.value}
+                            onChange={(e) => updateWhenCondition(index, 'value', e.target.value)}
+                            className="glass-card border-white/10 text-white"
+                          />
+                        )}
+                      </div>
+                    </div>
+                    {valueType === 'field' && (
+                      <p className="text-xs text-gray-400">
+                        💡 Comparing field "{statement.when_condition.field}" with field "{statement.when_condition.value}"
+                      </p>
+                    )}
+                  </div>
+
+                  {/* THEN Expression */}
+                  <div className="space-y-2">
+                    <Label className="text-white text-xs">Then return this value:</Label>
+                    <Textarea
+                      placeholder="e.g., {Net Profit} - {Payout} or just a field name like {Revenue}"
+                      value={statement.then_expression}
+                      onChange={(e) => updateThenExpression(index, e.target.value)}
+                      className="glass-card border-white/10 text-white font-mono text-sm"
+                      rows={2}
+                    />
+                    <p className="text-xs text-gray-400">
+                      Use {`{Field Name}`} to reference fields, or combine with math: +, -, *, /, ( )
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
 
@@ -192,7 +253,7 @@ export default function CaseWhenFormulaBuilder({
       <div className="space-y-2">
         <Label className="text-white">ELSE (Default Value)</Label>
         <Textarea
-          placeholder="e.g., Net Profit (returned when no WHEN condition matches)"
+          placeholder="e.g., {Net Profit} (returned when no WHEN condition matches)"
           value={elseExpression}
           onChange={(e) => updateElseExpression(e.target.value)}
           className="glass-card border-white/10 text-white font-mono text-sm"
@@ -209,16 +270,25 @@ export default function CaseWhenFormulaBuilder({
           <Label className="text-[#00d4ff] text-xs mb-2 block">Preview:</Label>
           <div className="font-mono text-xs text-white space-y-1">
             <div className="text-purple-400">CASE</div>
-            {caseStatements.map((stmt, idx) => (
-              <div key={idx} className="ml-4">
-                <span className="text-purple-400">WHEN</span>{' '}
-                <span className="text-green-400">{stmt.when_condition.field || '?'}</span>{' '}
-                <span className="text-blue-400">{stmt.when_condition.operator || '='}</span>{' '}
-                <span className="text-yellow-400">'{stmt.when_condition.value || '?'}'</span>{' '}
-                <span className="text-purple-400">THEN</span>{' '}
-                <span className="text-white">{stmt.then_expression || '?'}</span>
-              </div>
-            ))}
+            {caseStatements.map((stmt, idx) => {
+              const valueType = stmt.when_condition.value_type || 'static';
+              const displayValue = valueType === 'field' 
+                ? `{${stmt.when_condition.value || '?'}}` 
+                : `'${stmt.when_condition.value || '?'}'`;
+              
+              return (
+                <div key={idx} className="ml-4">
+                  <span className="text-purple-400">WHEN</span>{' '}
+                  <span className="text-green-400">{stmt.when_condition.field || '?'}</span>{' '}
+                  <span className="text-blue-400">{stmt.when_condition.operator || '='}</span>{' '}
+                  <span className={valueType === 'field' ? 'text-green-400' : 'text-yellow-400'}>
+                    {displayValue}
+                  </span>{' '}
+                  <span className="text-purple-400">THEN</span>{' '}
+                  <span className="text-white">{stmt.then_expression || '?'}</span>
+                </div>
+              );
+            })}
             <div className="ml-4">
               <span className="text-purple-400">ELSE</span>{' '}
               <span className="text-white">{elseExpression || '?'}</span>
