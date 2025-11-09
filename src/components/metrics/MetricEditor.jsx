@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -96,10 +97,27 @@ export default function MetricEditor({ metric, onClose }) {
         formData.definition.alias = formData.name;
       }
     } else if (formData.type === 'calculated_field') {
-      if (!formData.definition.formula || !formData.definition.formula_parts || formData.definition.formula_parts.length === 0) {
-        alert("Please build a formula for the calculated field");
-        return;
+      const formulaType = formData.definition.formula_type || 'simple';
+      
+      if (formulaType === 'simple') {
+        if (!formData.definition.formula || !formData.definition.formula_parts || formData.definition.formula_parts.length === 0) {
+          alert("Please build a formula for the calculated field");
+          return;
+        }
+      } else if (formulaType === 'case_when') {
+        if (!formData.definition.case_statements || formData.definition.case_statements.length === 0) {
+          alert("Please add at least one WHEN condition for the CASE WHEN formula");
+          return;
+        }
+        // Validate that each case statement has a condition and expression
+        for (const stmt of formData.definition.case_statements) {
+          if (!stmt.when_condition || !stmt.when_condition.field || !stmt.then_expression) {
+            alert("Each WHEN condition must have a field, operator, value, and THEN expression");
+            return;
+          }
+        }
       }
+      
       formData.definition.name = formData.name;
     }
 
@@ -207,8 +225,11 @@ export default function MetricEditor({ metric, onClose }) {
                     position: 0
                   } : {
                     name: formData.name || '',
+                    formula_type: 'simple', // Default to simple
                     formula: '',
                     formula_parts: [],
+                    case_statements: [], // Initialize for case_when
+                    else_expression: '', // Initialize for case_when
                     format: 'number',
                     visible: true,
                     position: 0
