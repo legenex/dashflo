@@ -97,10 +97,10 @@ const DATE_PRESETS = [
 
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState({
-    start: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
-    end: format(new Date(), 'yyyy-MM-dd')
+    start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+    end: format(endOfMonth(new Date()), 'yyyy-MM-dd')
   });
-  const [selectedPreset, setSelectedPreset] = useState('Last 30 days');
+  const [selectedPreset, setSelectedPreset] = useState('This month');
 
   const [customFilters, setCustomFilters] = useState([]);
   const [showFilterBuilder, setShowFilterBuilder] = useState(false);
