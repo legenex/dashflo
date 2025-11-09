@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -69,6 +69,9 @@ export default function QueryBuilder({ queryConfig, availableFields, widgetType,
       name: '',
       formula: '',
       formula_parts: [],
+      formula_type: 'simple', // Default to simple
+      case_statements: [], // Initialize empty
+      else_expression: { type: 'text', value: '' }, // Initialize default else
       format: 'number',
       visible: true
     };
@@ -782,6 +785,7 @@ export default function QueryBuilder({ queryConfig, availableFields, widgetType,
 // Separate component for calculated field card
 function CalculatedFieldCard({ field, aggregations, onChange, onRemove }) {
   const [formulaParts, setFormulaParts] = useState(field.formula_parts || []);
+  const [formulaType, setFormulaType] = useState(field.formula_type || 'simple');
 
   const availableFields = aggregations.map(agg => agg.alias || `${agg.function}_${agg.field}`).filter(f => f);
   
@@ -822,6 +826,25 @@ function CalculatedFieldCard({ field, aggregations, onChange, onRemove }) {
     };
     
     onChange(updatedField);
+  };
+
+  const handleFormulaTypeChange = (newType) => {
+    setFormulaType(newType);
+    // Clear formula parts/case statements when switching type
+    if (newType === 'simple') {
+      onChange({ ...field, formula_type: newType, case_statements: [], else_expression: { type: 'text', value: '' } });
+    } else { // case_when
+      onChange({ ...field, formula_type: newType, formula_parts: [], formula: '' });
+    }
+  };
+
+  const handleCaseWhenChange = ({ caseStatements, elseExpression }) => {
+    onChange({
+      ...field,
+      case_statements: caseStatements,
+      else_expression: elseExpression,
+      formula_type: 'case_when' // Ensure type is correct if not already set
+    });
   };
 
   const renderFormula = () => {
@@ -944,87 +967,324 @@ function CalculatedFieldCard({ field, aggregations, onChange, onRemove }) {
         </div>
       </div>
 
-      <div className="space-y-3">
-        <div>
-          <Label className="text-white text-sm mb-2 block">Build Formula</Label>
-          <div className="flex flex-wrap items-center gap-2 p-3 glass-card border-white/10 rounded-lg min-h-[60px]">
-            {formulaParts.length === 0 ? (
-              <p className="text-gray-400 text-sm">Click buttons below to build your formula</p>
-            ) : (
-              renderFormula()
+      {/* Formula Type Selector */}
+      <div>
+        <Label className="text-white text-sm mb-2 block">Formula Type</Label>
+        <Select value={formulaType} onValueChange={handleFormulaTypeChange}>
+          <SelectTrigger className="glass-card border-white/10 text-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="glass-card border-white/10">
+            <SelectItem value="simple" className="text-white">Simple Arithmetic</SelectItem>
+            <SelectItem value="case_when" className="text-white">Conditional (CASE WHEN)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Conditional Rendering Based on Formula Type */}
+      {formulaType === 'simple' ? (
+        <div className="space-y-3">
+          <div>
+            <Label className="text-white text-sm mb-2 block">Build Formula</Label>
+            <div className="flex flex-wrap items-center gap-2 p-3 glass-card border-white/10 rounded-lg min-h-[60px]">
+              {formulaParts.length === 0 ? (
+                <p className="text-gray-400 text-sm">Click buttons below to build your formula</p>
+              ) : (
+                renderFormula()
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addFormulaPart('field', '')}
+              className="glass-card border-[#00d4ff]/30 text-[#00d4ff] hover:bg-[#00d4ff]/10"
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Field
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addFormulaPart('number', '0')}
+              className="glass-card border-[#10b981]/30 text-[#10b981] hover:bg-[#10b981]/10"
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Number
+            </Button>
+            <div className="flex gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addFormulaPart('operator', '+')}
+                className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
+              >
+                +
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addFormulaPart('operator', '-')}
+                className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
+              >
+                −
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addFormulaPart('operator', '*')}
+                className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
+              >
+                ×
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addFormulaPart('operator', '/')}
+                className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
+              >
+                ÷
+              </Button>
+            </div>
+          </div>
+
+          {formulaParts.length > 0 && (
+            <div className="p-2 bg-white/5 rounded text-xs">
+              <span className="text-gray-400">Formula: </span>
+              <code className="text-[#00d4ff]">
+                {formulaParts.map(p => p.type === 'field' ? `{${p.value}}` : p.type === 'operator' ? ` ${p.value} ` : p.value).join('')}
+              </code>
+            </div>
+          )}
+        </div>
+      ) : (
+        <CaseWhenFormulaBuilder
+          caseStatements={field.case_statements || []}
+          elseExpression={field.else_expression || { type: 'text', value: '' } }
+          availableFields={availableFields}
+          onChange={handleCaseWhenChange}
+        />
+      )}
+    </div>
+  );
+}
+
+// Helper component for building individual conditions for CASE WHEN
+function ConditionBuilder({ condition, availableFields, onChange }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Select
+        value={condition.field || ''}
+        onValueChange={(v) => onChange({ ...condition, field: v })}
+      >
+        <SelectTrigger className="glass-card border-white/10 text-white flex-1 min-w-[120px]">
+          <SelectValue placeholder="Select Field" />
+        </SelectTrigger>
+        <SelectContent className="glass-card border-white/10">
+          {availableFields.map(f => (
+            <SelectItem key={f} value={f} className="text-white">{f}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        value={condition.operator || 'equals'}
+        onValueChange={(v) => onChange({ ...condition, operator: v })}
+      >
+        <SelectTrigger className="glass-card border-white/10 text-white flex-1 min-w-[120px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="glass-card border-white/10">
+          <SelectItem value="equals" className="text-white">Equals</SelectItem>
+          <SelectItem value="not_equals" className="text-white">Not Equals</SelectItem>
+          <SelectItem value="greater_than" className="text-white">Greater Than</SelectItem>
+          <SelectItem value="less_than" className="text-white">Less Than</SelectItem>
+          <SelectItem value="contains" className="text-white">Contains</SelectItem>
+          <SelectItem value="starts_with" className="text-white">Starts With</SelectItem>
+          <SelectItem value="ends_with" className="text-white">Ends With</SelectItem>
+          <SelectItem value="is_null" className="text-white">Is NULL</SelectItem>
+          <SelectItem value="is_not_null" className="text-white">Is Not NULL</SelectItem>
+        </SelectContent>
+      </Select>
+      <Input
+        value={condition.value || ''}
+        onChange={(e) => onChange({ ...condition, value: e.target.value })}
+        placeholder="Value"
+        className="glass-card border-white/10 text-white flex-1 min-w-[120px]"
+        disabled={condition.operator === 'is_null' || condition.operator === 'is_not_null'}
+      />
+    </div>
+  );
+}
+
+// Helper component for building result expressions (can be field, number, or text)
+function ResultExpressionBuilder({ expression, availableFields, onChange }) {
+    const [type, setType] = useState(expression.type || 'field'); // field, number, text
+
+    useEffect(() => {
+        setType(expression.type || 'field');
+    }, [expression.type]);
+
+    const handleTypeChange = (newType) => {
+        setType(newType);
+        onChange({ type: newType, value: '' }); // Reset value when type changes
+    };
+
+    const handleValueChange = (e) => {
+        onChange({ ...expression, value: e.target.value });
+    };
+
+    return (
+        <div className="flex gap-2 items-center">
+            <Select value={type} onValueChange={handleTypeChange}>
+                <SelectTrigger className="glass-card border-white/10 text-white w-[100px]">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="glass-card border-white/10">
+                    <SelectItem value="field" className="text-white">Field</SelectItem>
+                    <SelectItem value="number" className="text-white">Number</SelectItem>
+                    <SelectItem value="text" className="text-white">Text</SelectItem>
+                </SelectContent>
+            </Select>
+            {type === 'field' && (
+                <Select
+                    value={expression.value || ''}
+                    onValueChange={(v) => onChange({ ...expression, value: v })}
+                >
+                    <SelectTrigger className="glass-card border-white/10 text-white flex-1">
+                        <SelectValue placeholder="Select field" />
+                    </SelectTrigger>
+                    <SelectContent className="glass-card border-white/10">
+                        {availableFields.map(f => (
+                            <SelectItem key={f} value={f} className="text-white">{f}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             )}
+            {type === 'number' && (
+                <Input
+                    type="number"
+                    value={expression.value || ''}
+                    onChange={handleValueChange}
+                    placeholder="Enter number"
+                    className="glass-card border-white/10 text-white flex-1"
+                />
+            )}
+            {type === 'text' && (
+                <Input
+                    type="text"
+                    value={expression.value || ''}
+                    onChange={handleValueChange}
+                    placeholder="Enter text"
+                    className="glass-card border-white/10 text-white flex-1"
+                />
+            )}
+        </div>
+    );
+}
+
+// Main CaseWhenFormulaBuilder component
+function CaseWhenFormulaBuilder({ caseStatements, elseExpression, availableFields, onChange }) {
+  const [localCaseStatements, setLocalCaseStatements] = useState(caseStatements);
+  const [localElseExpression, setLocalElseExpression] = useState(elseExpression);
+
+  useEffect(() => {
+    setLocalCaseStatements(caseStatements);
+  }, [caseStatements]);
+
+  useEffect(() => {
+    setLocalElseExpression(elseExpression);
+  }, [elseExpression]);
+
+  const addCase = () => {
+    const newCase = {
+      condition: { field: '', operator: 'equals', value: '' },
+      result: { type: 'field', value: '' },
+    };
+    const updatedStatements = [...localCaseStatements, newCase];
+    setLocalCaseStatements(updatedStatements);
+    onChange({ caseStatements: updatedStatements, elseExpression: localElseExpression });
+  };
+
+  const updateCase = (index, key, value) => {
+    const updatedStatements = [...localCaseStatements];
+    updatedStatements[index] = { ...updatedStatements[index], [key]: value };
+    setLocalCaseStatements(updatedStatements);
+    onChange({ caseStatements: updatedStatements, elseExpression: localElseExpression });
+  };
+
+  const removeCase = (index) => {
+    const updatedStatements = localCaseStatements.filter((_, i) => i !== index);
+    setLocalCaseStatements(updatedStatements);
+    onChange({ caseStatements: updatedStatements, elseExpression: localElseExpression });
+  };
+
+  const updateElseExpression = (expression) => {
+    setLocalElseExpression(expression);
+    onChange({ caseStatements: localCaseStatements, elseExpression: expression });
+  };
+
+  return (
+    <div className="space-y-4">
+      <Label className="text-white text-sm">CASE WHEN Statements</Label>
+      {localCaseStatements.map((caseItem, index) => (
+        <div key={index} className="glass-card border-white/10 p-3 rounded space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-white text-sm font-medium">WHEN {index + 1}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => removeCase(index)}
+              className="text-red-400 hover:bg-red-500/20 h-8 w-8"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+          <div>
+            <Label className="text-white text-xs mb-1 block">Condition</Label>
+            <ConditionBuilder
+                condition={caseItem.condition}
+                availableFields={availableFields}
+                onChange={(c) => updateCase(index, 'condition', c)}
+            />
+          </div>
+          <div>
+            <Label className="text-white text-xs mb-1 block">THEN Result</Label>
+            <ResultExpressionBuilder
+                expression={caseItem.result}
+                availableFields={availableFields}
+                onChange={(r) => updateCase(index, 'result', r)}
+            />
           </div>
         </div>
+      ))}
 
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => addFormulaPart('field', '')}
-            className="glass-card border-[#00d4ff]/30 text-[#00d4ff] hover:bg-[#00d4ff]/10"
-          >
-            <Plus className="w-3 h-3 mr-1" />
-            Field
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => addFormulaPart('number', '0')}
-            className="glass-card border-[#10b981]/30 text-[#10b981] hover:bg-[#10b981]/10"
-          >
-            <Plus className="w-3 h-3 mr-1" />
-            Number
-          </Button>
-          <div className="flex gap-1">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => addFormulaPart('operator', '+')}
-              className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
-            >
-              +
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => addFormulaPart('operator', '-')}
-              className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
-            >
-              −
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => addFormulaPart('operator', '*')}
-              className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
-            >
-              ×
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => addFormulaPart('operator', '/')}
-              className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
-            >
-              ÷
-            </Button>
-          </div>
-        </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={addCase}
+        className="glass-card border-[#10b981]/30 text-[#10b981] hover:bg-[#10b981]/10 w-full"
+      >
+        <Plus className="w-4 h-4 mr-1" />
+        Add WHEN Clause
+      </Button>
 
-        {formulaParts.length > 0 && (
-          <div className="p-2 bg-white/5 rounded text-xs">
-            <span className="text-gray-400">Formula: </span>
-            <code className="text-[#00d4ff]">
-              {formulaParts.map(p => p.type === 'field' ? `{${p.value}}` : p.type === 'operator' ? ` ${p.value} ` : p.value).join('')}
-            </code>
-          </div>
-        )}
+      <div className="glass-card border-white/10 p-3 rounded space-y-2">
+        <Label className="text-white text-sm font-medium mb-1 block">ELSE Result</Label>
+        <ResultExpressionBuilder
+            expression={localElseExpression}
+            availableFields={availableFields}
+            onChange={(r) => updateElseExpression(r)}
+        />
       </div>
     </div>
   );
