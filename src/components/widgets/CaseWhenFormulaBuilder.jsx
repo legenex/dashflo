@@ -1,11 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Trash2, AlertCircle } from "lucide-react";
+import { Plus, Trash2, AlertCircle, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default function CaseWhenFormulaBuilder({
@@ -14,6 +14,9 @@ export default function CaseWhenFormulaBuilder({
   availableFields = [],
   onChange
 }) {
+  const [expandedThenBuilder, setExpandedThenBuilder] = useState({});
+  const [showElseBuilder, setShowElseBuilder] = useState(false);
+
   const addWhenClause = () => {
     const newStatements = [
       ...caseStatements,
@@ -22,7 +25,7 @@ export default function CaseWhenFormulaBuilder({
           field: '',
           operator: 'equals',
           value: '',
-          value_type: 'static' // New field: 'static' or 'field'
+          value_type: 'static'
         },
         then_expression: ''
       }
@@ -32,6 +35,9 @@ export default function CaseWhenFormulaBuilder({
 
   const removeWhenClause = (index) => {
     const newStatements = caseStatements.filter((_, i) => i !== index);
+    const newExpanded = { ...expandedThenBuilder };
+    delete newExpanded[index];
+    setExpandedThenBuilder(newExpanded);
     onChange({ caseStatements: newStatements, elseExpression });
   };
 
@@ -39,7 +45,6 @@ export default function CaseWhenFormulaBuilder({
     const newStatements = [...caseStatements];
     newStatements[index].when_condition[key] = value;
     
-    // If changing value_type, reset the value
     if (key === 'value_type') {
       newStatements[index].when_condition.value = '';
     }
@@ -55,6 +60,23 @@ export default function CaseWhenFormulaBuilder({
 
   const updateElseExpression = (value) => {
     onChange({ caseStatements, elseExpression: value });
+  };
+
+  const appendToThenExpression = (index, text) => {
+    const currentExpr = caseStatements[index].then_expression || '';
+    updateThenExpression(index, currentExpr + text);
+  };
+
+  const appendToElseExpression = (text) => {
+    const currentExpr = elseExpression || '';
+    updateElseExpression(currentExpr + text);
+  };
+
+  const toggleThenBuilder = (index) => {
+    setExpandedThenBuilder({
+      ...expandedThenBuilder,
+      [index]: !expandedThenBuilder[index]
+    });
   };
 
   return (
@@ -106,6 +128,7 @@ export default function CaseWhenFormulaBuilder({
         ) : (
           caseStatements.map((statement, index) => {
             const valueType = statement.when_condition.value_type || 'static';
+            const isThenBuilderExpanded = expandedThenBuilder[index];
             
             return (
               <Card key={index} className="glass-card border-white/10">
@@ -230,7 +253,19 @@ export default function CaseWhenFormulaBuilder({
 
                   {/* THEN Expression */}
                   <div className="space-y-2">
-                    <Label className="text-white text-xs">Then return this value:</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-white text-xs">Then return this value:</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleThenBuilder(index)}
+                        className="text-[#00d4ff] hover:bg-[#00d4ff]/10 text-xs h-7"
+                      >
+                        {isThenBuilderExpanded ? 'Hide' : 'Show'} Builder
+                      </Button>
+                    </div>
+                    
                     <Textarea
                       placeholder="e.g., {Net Profit} - {Payout} or just a field name like {Revenue}"
                       value={statement.then_expression}
@@ -238,6 +273,124 @@ export default function CaseWhenFormulaBuilder({
                       className="glass-card border-white/10 text-white font-mono text-sm"
                       rows={2}
                     />
+
+                    {isThenBuilderExpanded && (
+                      <div className="space-y-2 p-3 glass-card border-[#00d4ff]/30 rounded-lg">
+                        <p className="text-xs text-gray-400">Click to add to formula:</p>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              // Show field selector
+                              const field = prompt('Select or type field name:', availableFields[0] || '');
+                              if (field) appendToThenExpression(index, `{${field}}`);
+                            }}
+                            className="glass-card border-[#00d4ff]/30 text-[#00d4ff] hover:bg-[#00d4ff]/10"
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Field
+                          </Button>
+                          
+                          {/* Field Shortcuts */}
+                          {availableFields.slice(0, 5).map(field => (
+                            <Button
+                              key={field}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => appendToThenExpression(index, `{${field}}`)}
+                              className="glass-card border-[#00d4ff]/30 text-[#00d4ff] hover:bg-[#00d4ff]/10 text-xs"
+                            >
+                              {field}
+                            </Button>
+                          ))}
+                          
+                          {availableFields.length > 5 && (
+                            <Select onValueChange={(v) => appendToThenExpression(index, `{${v}}`)}>
+                              <SelectTrigger className="glass-card border-[#00d4ff]/30 text-[#00d4ff] w-32 h-8">
+                                <SelectValue placeholder="More fields..." />
+                              </SelectTrigger>
+                              <SelectContent className="glass-card border-white/10 max-h-64">
+                                {availableFields.slice(5).map(field => (
+                                  <SelectItem key={field} value={field} className="text-white">
+                                    {field}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => appendToThenExpression(index, ' + ')}
+                            className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
+                          >
+                            +
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => appendToThenExpression(index, ' - ')}
+                            className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
+                          >
+                            −
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => appendToThenExpression(index, ' * ')}
+                            className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
+                          >
+                            ×
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => appendToThenExpression(index, ' / ')}
+                            className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
+                          >
+                            ÷
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => appendToThenExpression(index, '(')}
+                            className="glass-card border-white/10 text-white hover:bg-white/10 px-3"
+                          >
+                            (
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => appendToThenExpression(index, ')')}
+                            className="glass-card border-white/10 text-white hover:bg-white/10 px-3"
+                          >
+                            )
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateThenExpression(index, '')}
+                            className="glass-card border-red-500/30 text-red-400 hover:bg-red-500/20"
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    
                     <p className="text-xs text-gray-400">
                       Use {`{Field Name}`} to reference fields, or combine with math: +, -, *, /, ( )
                     </p>
@@ -251,7 +404,19 @@ export default function CaseWhenFormulaBuilder({
 
       {/* ELSE Expression */}
       <div className="space-y-2">
-        <Label className="text-white">ELSE (Default Value)</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-white">ELSE (Default Value)</Label>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowElseBuilder(!showElseBuilder)}
+            className="text-[#00d4ff] hover:bg-[#00d4ff]/10 text-xs h-7"
+          >
+            {showElseBuilder ? 'Hide' : 'Show'} Builder
+          </Button>
+        </div>
+        
         <Textarea
           placeholder="e.g., {Net Profit} (returned when no WHEN condition matches)"
           value={elseExpression}
@@ -259,6 +424,122 @@ export default function CaseWhenFormulaBuilder({
           className="glass-card border-white/10 text-white font-mono text-sm"
           rows={2}
         />
+
+        {showElseBuilder && (
+          <div className="space-y-2 p-3 glass-card border-[#00d4ff]/30 rounded-lg">
+            <p className="text-xs text-gray-400">Click to add to formula:</p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const field = prompt('Select or type field name:', availableFields[0] || '');
+                  if (field) appendToElseExpression(`{${field}}`);
+                }}
+                className="glass-card border-[#00d4ff]/30 text-[#00d4ff] hover:bg-[#00d4ff]/10"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Field
+              </Button>
+              
+              {availableFields.slice(0, 5).map(field => (
+                <Button
+                  key={field}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => appendToElseExpression(`{${field}}`)}
+                  className="glass-card border-[#00d4ff]/30 text-[#00d4ff] hover:bg-[#00d4ff]/10 text-xs"
+                >
+                  {field}
+                </Button>
+              ))}
+              
+              {availableFields.length > 5 && (
+                <Select onValueChange={(v) => appendToElseExpression(`{${v}}`)}>
+                  <SelectTrigger className="glass-card border-[#00d4ff]/30 text-[#00d4ff] w-32 h-8">
+                    <SelectValue placeholder="More fields..." />
+                  </SelectTrigger>
+                  <SelectContent className="glass-card border-white/10 max-h-64">
+                    {availableFields.slice(5).map(field => (
+                      <SelectItem key={field} value={field} className="text-white">
+                        {field}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendToElseExpression(' + ')}
+                className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
+              >
+                +
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendToElseExpression(' - ')}
+                className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
+              >
+                −
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendToElseExpression(' * ')}
+                className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
+              >
+                ×
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendToElseExpression(' / ')}
+                className="glass-card border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/10 px-3"
+              >
+                ÷
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendToElseExpression('(')}
+                className="glass-card border-white/10 text-white hover:bg-white/10 px-3"
+              >
+                (
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendToElseExpression(')')}
+                className="glass-card border-white/10 text-white hover:bg-white/10 px-3"
+              >
+                )
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => updateElseExpression('')}
+                className="glass-card border-red-500/30 text-red-400 hover:bg-red-500/20"
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+        )}
+        
         <p className="text-xs text-gray-400">
           This value is returned when none of the WHEN conditions are true
         </p>
