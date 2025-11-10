@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -583,20 +582,16 @@ export default function QueryBuilder({ queryConfig, availableFields, widgetType,
           </SelectTrigger>
           <SelectContent className="glass-card border-white/10">
             <SelectItem value={null} className="text-white">No sorting</SelectItem>
-            {availableFields.map(field => (
-              <React.Fragment key={field}>
-                <SelectItem value={field} className="text-white">{field} (Ascending)</SelectItem>
-                <SelectItem value={`-${field}`} className="text-white">{field} (Descending)</SelectItem>
-              </React.Fragment>
-            ))}
+            {availableFields.map(field => [
+              <SelectItem key={`${field}-asc`} value={field} className="text-white">{field} (Ascending)</SelectItem>,
+              <SelectItem key={`${field}-desc`} value={`-${field}`} className="text-white">{field} (Descending)</SelectItem>
+            ])}
             {(queryConfig.aggregations || []).map((agg, idx) => {
               const aggName = agg.alias || `${agg.function}_${agg.field}`;
-              return (
-                <React.Fragment key={`agg-${idx}`}>
-                  <SelectItem value={aggName} className="text-white">{aggName} (Ascending)</SelectItem>
-                  <SelectItem value={`-${aggName}`} className="text-white">{aggName} (Descending)</SelectItem>
-                </React.Fragment>
-              );
+              return [
+                <SelectItem key={`agg-${idx}-asc`} value={aggName} className="text-white">{aggName} (Ascending)</SelectItem>,
+                <SelectItem key={`agg-${idx}-desc`} value={`-${aggName}`} className="text-white">{aggName} (Descending)</SelectItem>
+              ];
             })}
           </SelectContent>
         </Select>
