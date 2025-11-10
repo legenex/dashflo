@@ -85,6 +85,35 @@ Deno.serve(async (req) => {
         return 0;
       }
       
+      // Check if it's just a single field reference like "{Net Profit}"
+      const singleFieldMatch = formulaString.match(/^\{([^}]+)\}$/);
+      if (singleFieldMatch) {
+        const fieldName = singleFieldMatch[1];
+        
+        // Look for value in rowData, then in existingMetrics
+        let value = rowData[fieldName];
+        if (value === undefined && existingMetrics[fieldName] !== undefined) {
+          value = existingMetrics[fieldName];
+        }
+        
+        // Case-insensitive fallback
+        if (value === undefined) {
+          const allKeys = Object.keys(rowData).concat(Object.keys(existingMetrics));
+          const matchedKey = allKeys.find(k => k.toLowerCase() === fieldName.toLowerCase());
+          if (matchedKey) {
+            value = (rowData[matchedKey] !== undefined) ? rowData[matchedKey] : existingMetrics[matchedKey];
+          }
+        }
+        
+        // Return the value directly (don't convert to number if it's not numeric)
+        if (value !== undefined && value !== null) {
+          return value;
+        }
+        
+        console.log(`  WARNING: Field "${fieldName}" not found in data or metrics`);
+        return 0;
+      }
+      
       let evalFormula = formulaString;
       const fieldMatches = formulaString.match(/\{([^}]+)\}/g);
       
@@ -571,7 +600,7 @@ Deno.serve(async (req) => {
             if (value && typeof value === 'object' && !Array.isArray(value) && value.value !== undefined) {
               flattened[key] = value.value;
             } else {
-              flattened[key] = value;
+                flattened[key] = value;
             }
           }
           return flattened;
