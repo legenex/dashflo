@@ -104,6 +104,23 @@ export default function QueryBuilder({ queryConfig, availableFields, widgetType,
     }
   };
 
+  const handleMetricReorder = (result) => {
+    if (!result.destination) return;
+    
+    const currentMetricIds = queryConfig.metric_ids || [];
+    const items = Array.from(currentMetricIds);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+    
+    onChange({ ...queryConfig, metric_ids: items });
+  };
+
+  const removeMetric = (metricId) => {
+    const currentMetricIds = queryConfig.metric_ids || [];
+    const newMetricIds = currentMetricIds.filter(id => id !== metricId);
+    onChange({ ...queryConfig, metric_ids: newMetricIds });
+  };
+
   const toggleColumn = (fieldName) => {
     const columns = queryConfig.columns || [];
     const columnConfig = Array.isArray(columns[0]) 
@@ -202,6 +219,12 @@ export default function QueryBuilder({ queryConfig, availableFields, widgetType,
   const columnConfig = columns.map(col => 
     typeof col === 'string' ? { field: col, alias: '', visible: true } : col
   );
+
+  // Get selected metrics in order
+  const selectedMetrics = (queryConfig.metric_ids || [])
+    .map(id => libraryMetrics.find(m => m.id === id))
+    .filter(Boolean); // Filter out any metrics not found in libraryMetrics (e.g., if deleted)
+
 
   return (
     <div className="space-y-6">
@@ -419,25 +442,65 @@ export default function QueryBuilder({ queryConfig, availableFields, widgetType,
           </Button>
         </div>
 
-        {queryConfig.metric_ids && queryConfig.metric_ids.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {queryConfig.metric_ids.map(metricId => {
-              const metric = libraryMetrics.find(m => m.id === metricId);
-              if (!metric) return null;
-
-              return (
-                <Badge
-                  key={metricId}
-                  className="bg-purple-500/20 text-purple-400 border-purple-500/30 border flex items-center gap-1"
-                >
-                  {metric.name}
-                  <X
-                    className="w-3 h-3 cursor-pointer hover:text-purple-200"
-                    onClick={() => handleMetricToggle(metricId)}
-                  />
-                </Badge>
-              );
-            })}
+        {selectedMetrics.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-white text-sm">Selected Metrics ({selectedMetrics.length})</Label>
+              <p className="text-xs text-gray-400">Drag to reorder</p>
+            </div>
+            <DragDropContext onDragEnd={handleMetricReorder}>
+              <Droppable droppableId="metrics">
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="space-y-2"
+                  >
+                    {selectedMetrics.map((metric, index) => (
+                      <Draggable key={metric.id} draggableId={metric.id} index={index}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className={`flex items-center gap-3 p-3 rounded glass-card border-purple-500/30 ${
+                              snapshot.isDragging ? 'opacity-50 shadow-lg' : ''
+                            }`}
+                          >
+                            <div
+                              {...provided.dragHandleProps}
+                              className="cursor-grab active:cursor-grabbing"
+                            >
+                              <GripVertical className="w-4 h-4 text-gray-400 hover:text-white transition-colors" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-white font-medium">{metric.name}</span>
+                                <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
+                                  {metric.type}
+                                </Badge>
+                              </div>
+                              {metric.description && (
+                                <p className="text-gray-400 text-xs mt-1">{metric.description}</p>
+                              )}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeMetric(metric.id)}
+                              className="text-red-400 hover:bg-red-500/20"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
           </div>
         )}
 
