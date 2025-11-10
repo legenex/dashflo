@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -6,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 
-export default function AggregationBuilder({ definition, availableFields, onChange }) {
+export default function AggregationBuilder({ definition, availableFields, onChange, onRemove }) {
   const [fieldSearch, setFieldSearch] = useState('');
 
   const updateDef = (key, value) => {
@@ -35,6 +34,20 @@ export default function AggregationBuilder({ definition, availableFields, onChan
 
   return (
     <div className="space-y-4">
+      {onRemove && (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onRemove}
+            className="text-red-400 hover:bg-red-500/20"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label className="text-white">Function *</Label>
