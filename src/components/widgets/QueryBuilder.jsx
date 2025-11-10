@@ -490,26 +490,26 @@ export default function QueryBuilder({ queryConfig, availableFields, widgetType,
                                 <p className="text-gray-400 text-xs mt-1">{metric.description}</p>
                               )}
                             </div>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleEditMetric(metric.id)}
-                                className="text-gray-400 hover:bg-gray-500/20"
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeMetric(metric.id)}
-                                className="text-red-400 hover:bg-red-500/20"
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditMetric(metric.id)}
+                              className="text-[#00d4ff] hover:bg-[#00d4ff]/20"
+                              title="Edit metric"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeMetric(metric.id)}
+                              className="text-red-400 hover:bg-red-500/20"
+                              title="Remove metric"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
                           </div>
                         )}
                       </Draggable>
