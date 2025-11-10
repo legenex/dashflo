@@ -4,14 +4,17 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, X, Search, GripVertical } from "lucide-react";
+import { Plus, Trash2, X, Search, GripVertical, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import CaseWhenFormulaBuilder from "./CaseWhenFormulaBuilder";
 
 export default function QueryBuilder({ queryConfig, availableFields, widgetType, sourceConfig, onChange }) {
+  const navigate = useNavigate();
   const [showMetricSelector, setShowMetricSelector] = useState(false);
   const [showCalculatedFields, setShowCalculatedFields] = useState(false);
   const [columnSearchTerm, setColumnSearchTerm] = useState('');
@@ -119,6 +122,10 @@ export default function QueryBuilder({ queryConfig, availableFields, widgetType,
     const currentMetricIds = queryConfig.metric_ids || [];
     const newMetricIds = currentMetricIds.filter(id => id !== metricId);
     onChange({ ...queryConfig, metric_ids: newMetricIds });
+  };
+
+  const handleEditMetric = (metricId) => {
+    navigate(createPageUrl(`MetricsLibrary?edit=${metricId}`));
   };
 
   const toggleColumn = (fieldName) => {
@@ -483,15 +490,26 @@ export default function QueryBuilder({ queryConfig, availableFields, widgetType,
                                 <p className="text-gray-400 text-xs mt-1">{metric.description}</p>
                               )}
                             </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeMetric(metric.id)}
-                              className="text-red-400 hover:bg-red-500/20"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditMetric(metric.id)}
+                                className="text-gray-400 hover:bg-gray-500/20"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeMetric(metric.id)}
+                                className="text-red-400 hover:bg-red-500/20"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </Draggable>
@@ -542,6 +560,18 @@ export default function QueryBuilder({ queryConfig, availableFields, widgetType,
                           <p className="text-gray-400 text-xs mt-1 ml-6">{metric.description}</p>
                         )}
                       </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent toggling metric selection
+                          handleEditMetric(metric.id);
+                        }}
+                        className="text-gray-400 hover:bg-gray-500/20 ml-2"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
                 );
