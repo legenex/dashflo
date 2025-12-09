@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -378,7 +377,8 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Dashboard Overview</h1>
-          <p className="text-gray-400">Monitor your lead generation performance in real-time</p>
+          <p className="text-gray-400">Monitor your key metrics and performance in real-time</p>
+          <p className="text-xs text-gray-500 mt-1">💡 Tip: Use filters below to customize your view and date ranges</p>
         </div>
         <div className="flex gap-3">
           <Button
@@ -386,6 +386,7 @@ export default function Dashboard() {
             className="glass-card border-white/10 text-white hover:bg-white/10"
             onClick={refetchAllWidgets}
             disabled={editMode || isExporting}
+            title="Refresh all dashboard widgets with latest data"
           >
             <RefreshCcw className="w-4 h-4 mr-2" />
             Refresh
@@ -394,6 +395,7 @@ export default function Dashboard() {
             className="bg-gradient-to-r from-[#00d4ff] to-[#a855f7] text-white"
             onClick={handleExportReport}
             disabled={editMode || isExporting || widgets.length === 0}
+            title="Download dashboard data as CSV file"
           >
             <Download className="w-4 h-4 mr-2" />
             {isExporting ? 'Exporting...' : 'Export Report'}
@@ -407,7 +409,10 @@ export default function Dashboard() {
           {/* Date Range with Preset Selector */}
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex-1 min-w-[180px] max-w-[200px]">
-              <Label className="text-white">Date Range Preset</Label>
+              <Label className="text-white flex items-center justify-between">
+                Date Range Preset
+                <span className="text-xs text-gray-400 font-normal">Filter by time</span>
+              </Label>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -480,6 +485,7 @@ export default function Dashboard() {
               onClick={() => setShowFilterBuilder(!showFilterBuilder)}
               className="glass-card border-white/10 text-white"
               disabled={editMode}
+              title="Show advanced filtering options"
             >
               <Filter className="w-4 h-4 mr-2" />
               {showFilterBuilder ? 'Hide' : 'Show'} Advanced
@@ -493,6 +499,7 @@ export default function Dashboard() {
               onClick={refetchAllWidgets}
               className="bg-[#00d4ff] hover:bg-[#00d4ff]/90 text-white"
               disabled={editMode}
+              title="Apply the selected filters to all widgets"
             >
               Apply Filter
             </Button>
@@ -502,7 +509,8 @@ export default function Dashboard() {
           {savedFilters.length > 0 && !editMode && (
             <div className="border-t border-white/10 pt-4">
               <div className="mb-3">
-                <h3 className="text-white font-semibold text-sm">Filters</h3>
+                <h3 className="text-white font-semibold text-sm">Quick Filters</h3>
+                <p className="text-xs text-gray-400 mt-1">Use these preset filters for quick data filtering</p>
               </div>
               <SavedFilterBar
                 savedFilters={savedFilters}
@@ -639,39 +647,46 @@ export default function Dashboard() {
         <>
           <div className="flex items-center justify-between mb-4">
             {!editMode ? (
+            <div className="ml-auto">
               <Button
                 variant="outline"
                 onClick={() => setEditMode(true)}
-                className="glass-card border-white/10 text-white hover:bg-white/10 ml-auto"
+                className="glass-card border-white/10 text-white hover:bg-white/10"
+                title="Rearrange dashboard widgets by dragging and dropping"
               >
                 <Pencil className="w-4 h-4 mr-2" />
-                Edit Layout
+                Customize Layout
               </Button>
-            ) : (
-              <div className="flex gap-2 ml-auto">
-                <Button
-                  variant="outline"
-                  onClick={handleCancelEdit}
-                  className="glass-card border-white/10 text-white hover:bg-white/10"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSaveLayout}
-                  className="bg-gradient-to-r from-[#00d4ff] to-[#a855f7] text-white"
-                >
-                  Save Layout
-                </Button>
-              </div>
-            )}
-          </div>
-          {editMode && (
-            <div className="mb-4 p-4 glass-card border-[#00d4ff]/30 rounded-lg">
-              <p className="text-[#00d4ff] text-sm">
-                💡 <strong>Edit Mode:</strong> Drag and drop widgets to reorder them. Click "Save Layout" when done.
-              </p>
+              <p className="text-xs text-gray-400 text-right mt-1">Rearrange your widgets</p>
             </div>
-          )}
+            ) : (
+            <div className="flex gap-2 ml-auto items-start">
+              <div className="mr-4 p-3 glass-card border-[#00d4ff]/30 rounded-lg">
+                <p className="text-[#00d4ff] text-sm font-medium">📝 Edit Mode Active</p>
+                <p className="text-xs text-gray-400 mt-1">Drag widgets to rearrange them</p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleCancelEdit}
+                    className="glass-card border-white/10 text-white hover:bg-white/10"
+                    title="Discard changes and exit edit mode"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSaveLayout}
+                    className="bg-gradient-to-r from-[#00d4ff] to-[#a855f7] text-white"
+                    title="Save your new widget arrangement"
+                  >
+                    Save Layout
+                  </Button>
+                </div>
+              </div>
+            </div>
+            )}
+            </div>
           <DragDropContext onDragEnd={handleWidgetDragEnd}>
             <Droppable droppableId="widgets" isDropDisabled={!editMode}>
               {(provided) => (
