@@ -268,23 +268,25 @@ export default function WidgetConfigPanel({ widget, onClose, onSave }) {
                   </div>
                 )}
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowMetricPicker(true)}
-                  className="glass-card border-white/10 text-[#00d4ff] w-full justify-start"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add metric
-                </Button>
+                <div className="relative">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowMetricPicker(!showMetricPicker)}
+                    className="glass-card border-white/10 text-[#00d4ff] w-full justify-start"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add metric
+                  </Button>
 
-                {/* Metric Picker Modal */}
-                {showMetricPicker && (
-                  <div className="fixed inset-0 z-[60]" onClick={() => setShowMetricPicker(false)}>
-                    <div 
-                      className="absolute right-full mr-4 top-0 glass-card border-white/10 rounded-lg w-80 max-h-[500px] flex flex-col shadow-2xl" 
-                      onClick={(e) => e.stopPropagation()}
-                    >
+                  {/* Metric Picker Panel */}
+                  {showMetricPicker && (
+                    <>
+                      <div className="fixed inset-0 z-[60]" onClick={() => setShowMetricPicker(false)} />
+                      <div 
+                        className="absolute left-0 top-full mt-2 glass-card border-white/10 rounded-lg w-80 max-h-[500px] flex flex-col shadow-2xl z-[61]" 
+                        onClick={(e) => e.stopPropagation()}
+                      >
                       <div className="p-3 border-b border-white/10">
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -368,9 +370,10 @@ export default function WidgetConfigPanel({ widget, onClose, onSave }) {
                           </Button>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                )}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Limit for tables */}
