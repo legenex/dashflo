@@ -231,10 +231,11 @@ export default function QueryBuilder({ queryConfig, availableFields, widgetType,
 
   return (
     <div className="space-y-6">
-      {/* Columns Selection */}
-      {widgetType === 'table' && !queryConfig.group_by && (
+      {/* Columns Selection - Now available for all widget types */}
+      {!queryConfig.group_by && (
         <div className="space-y-3">
-          <Label className="text-white">Select Columns</Label>
+          <Label className="text-white">Select Fields from Data Source</Label>
+          <p className="text-xs text-gray-400">Choose raw fields to display alongside metrics</p>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
