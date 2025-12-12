@@ -284,7 +284,7 @@ export default function WidgetConfigPanel({ widget, onClose, onSave }) {
                     <>
                       <div className="fixed inset-0 z-[100]" onClick={() => setShowMetricPicker(false)} />
                       <div 
-                        className="fixed right-[calc(100%-32rem)] top-[200px] glass-card border-white/10 rounded-lg w-72 max-h-[500px] flex flex-col shadow-2xl z-[101]" 
+                        className="fixed right-[29rem] top-[200px] glass-card border-white/10 rounded-lg w-72 max-h-[500px] flex flex-col shadow-2xl z-[101]" 
                         onClick={(e) => e.stopPropagation()}
                       >
                       <div className="p-3 border-b border-white/10">
