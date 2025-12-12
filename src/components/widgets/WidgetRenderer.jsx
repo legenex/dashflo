@@ -182,22 +182,22 @@ export default function WidgetRenderer({ widget, dateRange, customFilters }) {
       )}
       <Card className={`glass-card border-white/10 ${widthClass} relative group overflow-hidden ${widget.type === 'kpi_with_trend' ? 'h-[280px]' : ''}`}>
         {WidgetMenu}
-      {showTitle && (
-        <CardHeader className="px-3 py-2 text-sm flex flex-col space-y-1.5">
-          <CardTitle className="text-white text-sm font-bold uppercase tracking-wide">{widget.name}</CardTitle>
-        </CardHeader>
-      )}
-      <CardContent className={`${showTitle ? 'pt-0' : 'pt-6'} ${widget.type === 'kpi_with_trend' ? 'p-0 h-full' : ''}`}>
-        {widget.type === 'table' && <TableWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
-        {widget.type === 'kpi_card' && <KPIWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
-        {widget.type === 'kpi_with_trend' && <KPIWithTrendWidget data={data} config={widget} />}
-        {widget.type === 'stats_bar' && <StatsBarWidget data={data} config={widget} />}
-        {widget.type === 'line_chart' && <LineChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
-        {widget.type === 'bar_chart' && <BarChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
-        {widget.type === 'pie_chart' && <PieChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
-        {widget.type === 'area_chart' && <AreaChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
-      </CardContent>
-    </Card>
+        {showTitle && (
+          <CardHeader className="px-3 py-2 text-sm flex flex-col space-y-1.5">
+            <CardTitle className="text-white text-sm font-bold uppercase tracking-wide">{widget.name}</CardTitle>
+          </CardHeader>
+        )}
+        <CardContent className={`${showTitle ? 'pt-0' : 'pt-6'} ${widget.type === 'kpi_with_trend' ? 'p-0 h-full' : ''}`}>
+          {widget.type === 'table' && <TableWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
+          {widget.type === 'kpi_card' && <KPIWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
+          {widget.type === 'kpi_with_trend' && <KPIWithTrendWidget data={data} config={widget} />}
+          {widget.type === 'stats_bar' && <StatsBarWidget data={data} config={widget} />}
+          {widget.type === 'line_chart' && <LineChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
+          {widget.type === 'bar_chart' && <BarChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
+          {widget.type === 'pie_chart' && <PieChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
+          {widget.type === 'area_chart' && <AreaChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
+        </CardContent>
+      </Card>
     </>
   );
 }
