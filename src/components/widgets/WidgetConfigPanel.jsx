@@ -280,26 +280,29 @@ export default function WidgetConfigPanel({ widget, onClose, onSave }) {
 
                 {/* Metric Picker Modal */}
                 {showMetricPicker && (
-                  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={() => setShowMetricPicker(false)}>
-                    <div className="glass-card border-white/10 rounded-lg w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                      <div className="p-4 border-b border-white/10">
+                  <div className="fixed inset-0 z-[60]" onClick={() => setShowMetricPicker(false)}>
+                    <div 
+                      className="absolute right-full mr-4 top-0 glass-card border-white/10 rounded-lg w-80 max-h-[500px] flex flex-col shadow-2xl" 
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="p-3 border-b border-white/10">
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                           <Input
                             placeholder="Search"
                             value={metricSearchTerm}
                             onChange={(e) => setMetricSearchTerm(e.target.value)}
-                            className="glass-card border-white/10 text-white pl-10"
+                            className="glass-card border-white/10 text-white pl-10 text-sm"
                             autoFocus
                           />
                         </div>
                       </div>
                       
-                      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                      <div className="flex-1 overflow-y-auto p-3 space-y-3">
                         {/* Chart Fields */}
                         {filteredFieldsForMetrics.length > 0 && (
-                          <div className="space-y-2">
-                            <Label className="text-gray-400 text-xs uppercase tracking-wider">Chart fields</Label>
+                          <div className="space-y-1">
+                            <Label className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Chart fields</Label>
                             {filteredFieldsForMetrics.map(field => (
                               <button
                                 key={field}
@@ -308,9 +311,9 @@ export default function WidgetConfigPanel({ widget, onClose, onSave }) {
                                   setShowMetricPicker(false);
                                   setMetricSearchTerm("");
                                 }}
-                                className="w-full flex items-center gap-2 p-3 rounded glass-card border-white/10 hover:bg-white/5 text-left transition-colors"
+                                className="w-full flex items-center gap-2 p-2 rounded hover:bg-[#00d4ff]/10 text-left transition-colors"
                               >
-                                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs px-2 py-0.5">
+                                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs px-1.5 py-0.5">
                                   123
                                 </Badge>
                                 <span className="text-white text-sm">{field}</span>
@@ -321,8 +324,8 @@ export default function WidgetConfigPanel({ widget, onClose, onSave }) {
 
                         {/* Default group (Metrics from Library) */}
                         {filteredMetrics.length > 0 && (
-                          <div className="space-y-2">
-                            <Label className="text-gray-400 text-xs uppercase tracking-wider">Default group</Label>
+                          <div className="space-y-1">
+                            <Label className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Default group</Label>
                             {filteredMetrics.map(metric => (
                               <button
                                 key={metric.id}
@@ -331,9 +334,9 @@ export default function WidgetConfigPanel({ widget, onClose, onSave }) {
                                   setShowMetricPicker(false);
                                   setMetricSearchTerm("");
                                 }}
-                                className="w-full flex items-center gap-2 p-3 rounded glass-card border-white/10 hover:bg-white/5 text-left transition-colors"
+                                className="w-full flex items-center gap-2 p-2 rounded hover:bg-[#00d4ff]/10 text-left transition-colors"
                               >
-                                <Badge className={`${getMetricColor(metric)} text-xs px-2 py-0.5`}>
+                                <Badge className={`${getMetricColor(metric)} text-xs px-1.5 py-0.5`}>
                                   {getMetricBadge(metric)}
                                 </Badge>
                                 <span className="text-white text-sm">{metric.name}</span>
@@ -350,7 +353,7 @@ export default function WidgetConfigPanel({ widget, onClose, onSave }) {
                         )}
 
                         {/* Add calculated field button */}
-                        <div className="pt-4 border-t border-white/10">
+                        <div className="pt-2 border-t border-white/10">
                           <Button
                             variant="outline"
                             size="sm"
@@ -358,9 +361,9 @@ export default function WidgetConfigPanel({ widget, onClose, onSave }) {
                               window.open('/metrics-library', '_blank');
                               setShowMetricPicker(false);
                             }}
-                            className="glass-card border-[#00d4ff]/30 text-[#00d4ff] w-full justify-start"
+                            className="glass-card border-[#00d4ff]/30 text-[#00d4ff] w-full justify-start text-sm h-8"
                           >
-                            <Plus className="w-4 h-4 mr-2" />
+                            <Plus className="w-3 h-3 mr-2" />
                             Add calculated field
                           </Button>
                         </div>
