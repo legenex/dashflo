@@ -17,6 +17,8 @@ export default function WidgetConfigPanel({ widget, onClose, onSave }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFields, setSelectedFields] = useState([]);
   const [selectedMetrics, setSelectedMetrics] = useState([]);
+  const [showMetricPicker, setShowMetricPicker] = useState(false);
+  const [metricSearchTerm, setMetricSearchTerm] = useState("");
   const queryClient = useQueryClient();
 
   const { data: syncConfigs } = useQuery({
@@ -44,7 +46,11 @@ export default function WidgetConfigPanel({ widget, onClose, onSave }) {
   );
 
   const filteredMetrics = libraryMetrics.filter(metric =>
-    metric.name.toLowerCase().includes(searchTerm.toLowerCase())
+    metric.name.toLowerCase().includes(metricSearchTerm.toLowerCase())
+  );
+
+  const filteredFieldsForMetrics = availableFields.filter(field =>
+    field.toLowerCase().includes(metricSearchTerm.toLowerCase())
   );
 
   useEffect(() => {
@@ -265,12 +271,103 @@ export default function WidgetConfigPanel({ widget, onClose, onSave }) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => document.getElementById('metric-search')?.focus()}
+                  onClick={() => setShowMetricPicker(true)}
                   className="glass-card border-white/10 text-[#00d4ff] w-full justify-start"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add metric
                 </Button>
+
+                {/* Metric Picker Modal */}
+                {showMetricPicker && (
+                  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={() => setShowMetricPicker(false)}>
+                    <div className="glass-card border-white/10 rounded-lg w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                      <div className="p-4 border-b border-white/10">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <Input
+                            placeholder="Search"
+                            value={metricSearchTerm}
+                            onChange={(e) => setMetricSearchTerm(e.target.value)}
+                            className="glass-card border-white/10 text-white pl-10"
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        {/* Chart Fields */}
+                        {filteredFieldsForMetrics.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-gray-400 text-xs uppercase tracking-wider">Chart fields</Label>
+                            {filteredFieldsForMetrics.map(field => (
+                              <button
+                                key={field}
+                                onClick={() => {
+                                  addField(field);
+                                  setShowMetricPicker(false);
+                                  setMetricSearchTerm("");
+                                }}
+                                className="w-full flex items-center gap-2 p-3 rounded glass-card border-white/10 hover:bg-white/5 text-left transition-colors"
+                              >
+                                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs px-2 py-0.5">
+                                  123
+                                </Badge>
+                                <span className="text-white text-sm">{field}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Default group (Metrics from Library) */}
+                        {filteredMetrics.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-gray-400 text-xs uppercase tracking-wider">Default group</Label>
+                            {filteredMetrics.map(metric => (
+                              <button
+                                key={metric.id}
+                                onClick={() => {
+                                  addMetric(metric.id);
+                                  setShowMetricPicker(false);
+                                  setMetricSearchTerm("");
+                                }}
+                                className="w-full flex items-center gap-2 p-3 rounded glass-card border-white/10 hover:bg-white/5 text-left transition-colors"
+                              >
+                                <Badge className={`${getMetricColor(metric)} text-xs px-2 py-0.5`}>
+                                  {getMetricBadge(metric)}
+                                </Badge>
+                                <span className="text-white text-sm">{metric.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {filteredMetrics.length === 0 && filteredFieldsForMetrics.length === 0 && (
+                          <div className="text-center py-8 text-gray-400">
+                            <p>No metrics or fields found</p>
+                            <p className="text-xs mt-2">Try a different search term</p>
+                          </div>
+                        )}
+
+                        {/* Add calculated field button */}
+                        <div className="pt-4 border-t border-white/10">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              window.open('/metrics-library', '_blank');
+                              setShowMetricPicker(false);
+                            }}
+                            className="glass-card border-[#00d4ff]/30 text-[#00d4ff] w-full justify-start"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add calculated field
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Limit for tables */}
