@@ -19,14 +19,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import KPIWithTrendWidget from "./KPIWithTrendWidget";
 import StatsBarWidget from "./StatsBarWidget";
-import WidgetConfigPanel from "./WidgetConfigPanel";
 
 const COLORS = ['#00d4ff', '#a855f7', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899'];
 
 export default function WidgetRenderer({ widget, dateRange, customFilters }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [showConfigPanel, setShowConfigPanel] = React.useState(false);
 
   const { data: libraryMetrics } = useQuery({
     queryKey: ['library-metrics', widget.query_config?.metric_ids],
@@ -64,19 +62,7 @@ export default function WidgetRenderer({ widget, dateRange, customFilters }) {
   });
 
   const handleEdit = () => {
-    setShowConfigPanel(true);
-  };
-
-  const handleQuickSave = async (updatedConfig) => {
-    try {
-      await base44.entities.Widget.update(widget.id, updatedConfig);
-      queryClient.invalidateQueries(['dashboard-widgets']);
-      queryClient.invalidateQueries(['widget-data']);
-      setShowConfigPanel(false);
-    } catch (error) {
-      console.error('Failed to update widget:', error);
-      alert('Failed to save changes');
-    }
+    navigate(createPageUrl(`WidgetBuilder?edit=${widget.id}`));
   };
 
   const handleDelete = () => {
@@ -108,11 +94,7 @@ export default function WidgetRenderer({ widget, dateRange, customFilters }) {
         <DropdownMenuContent align="end" className="glass-card border-white/10">
           <DropdownMenuItem onClick={handleEdit} className="text-white hover:bg-white/10 cursor-pointer">
             <Pencil className="w-4 h-4 mr-2" />
-            Quick Edit
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => navigate(createPageUrl(`WidgetBuilder?edit=${widget.id}`))} className="text-white hover:bg-white/10 cursor-pointer">
-            <Pencil className="w-4 h-4 mr-2" />
-            Advanced Edit
+            Edit Widget
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleDelete} className="text-red-400 hover:bg-red-500/20 cursor-pointer">
             <Trash2 className="w-4 h-4 mr-2" />
@@ -172,33 +154,24 @@ export default function WidgetRenderer({ widget, dateRange, customFilters }) {
   }
 
   return (
-    <>
-      {showConfigPanel && (
-        <WidgetConfigPanel
-          widget={widget}
-          onClose={() => setShowConfigPanel(false)}
-          onSave={handleQuickSave}
-        />
+    <Card className={`glass-card border-white/10 ${widthClass} relative group overflow-hidden ${widget.type === 'kpi_with_trend' ? 'h-[280px]' : ''}`}>
+      {WidgetMenu}
+      {showTitle && (
+        <CardHeader className="px-3 py-2 text-sm flex flex-col space-y-1.5">
+          <CardTitle className="text-white text-sm font-bold uppercase tracking-wide">{widget.name}</CardTitle>
+        </CardHeader>
       )}
-      <Card className={`glass-card border-white/10 ${widthClass} relative group overflow-hidden ${widget.type === 'kpi_with_trend' ? 'h-[280px]' : ''}`}>
-        {WidgetMenu}
-        {showTitle && (
-          <CardHeader className="px-3 py-2 text-sm flex flex-col space-y-1.5">
-            <CardTitle className="text-white text-sm font-bold uppercase tracking-wide">{widget.name}</CardTitle>
-          </CardHeader>
-        )}
-        <CardContent className={`${showTitle ? 'pt-0' : 'pt-6'} ${widget.type === 'kpi_with_trend' ? 'p-0 h-full' : ''}`}>
-          {widget.type === 'table' && <TableWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
-          {widget.type === 'kpi_card' && <KPIWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
-          {widget.type === 'kpi_with_trend' && <KPIWithTrendWidget data={data} config={widget} />}
-          {widget.type === 'stats_bar' && <StatsBarWidget data={data} config={widget} />}
-          {widget.type === 'line_chart' && <LineChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
-          {widget.type === 'bar_chart' && <BarChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
-          {widget.type === 'pie_chart' && <PieChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
-          {widget.type === 'area_chart' && <AreaChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
-        </CardContent>
-      </Card>
-    </>
+      <CardContent className={`${showTitle ? 'pt-0' : 'pt-6'} ${widget.type === 'kpi_with_trend' ? 'p-0 h-full' : ''}`}>
+        {widget.type === 'table' && <TableWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
+        {widget.type === 'kpi_card' && <KPIWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
+        {widget.type === 'kpi_with_trend' && <KPIWithTrendWidget data={data} config={widget} />}
+        {widget.type === 'stats_bar' && <StatsBarWidget data={data} config={widget} />}
+        {widget.type === 'line_chart' && <LineChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
+        {widget.type === 'bar_chart' && <BarChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
+        {widget.type === 'pie_chart' && <PieChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
+        {widget.type === 'area_chart' && <AreaChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
+      </CardContent>
+    </Card>
   );
 }
 

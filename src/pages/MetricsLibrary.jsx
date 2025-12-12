@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -92,11 +93,10 @@ export default function MetricsLibrary() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Metrics Library</h1>
-          <p className="text-gray-400">Create and manage reusable metrics for your dashboard widgets</p>
-          <p className="text-xs text-gray-500 mt-1">💡 Tip: Metrics defined here can be reused across multiple widgets</p>
+          <p className="text-gray-400">Create reusable metrics for your widgets</p>
           {aggregationMetrics.length > 0 && (
             <p className="text-sm text-[#00d4ff] mt-2">
-              📊 Available aggregations: {aggregationMetrics.map(m => m.definition?.alias || m.name).join(', ')}
+              💡 Available aggregations: {aggregationMetrics.map(m => m.definition?.alias || m.name).join(', ')}
             </p>
           )}
         </div>
@@ -120,7 +120,6 @@ export default function MetricsLibrary() {
           <Button
             onClick={handleCreate}
             className="bg-gradient-to-r from-[#00d4ff] to-[#a855f7] text-white"
-            title="Create a new metric definition"
           >
             <Plus className="w-4 h-4 mr-2" />
             Create Metric

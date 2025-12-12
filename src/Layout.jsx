@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -217,12 +218,9 @@ export default function Layout({ children, currentPageName }) {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00d4ff] to-[#a855f7] flex items-center justify-center">
               <LayoutDashboard className="w-5 h-5 text-white" />
             </div>
-            <div className="hidden md:block">
-              <h1 className="text-xl font-bold gradient-text">
-                Dashflo
-              </h1>
-              <p className="text-xs text-gray-400">Data Dashboard & Analytics</p>
-            </div>
+            <h1 className="text-xl font-bold gradient-text hidden md:block">
+              Dashflo
+            </h1>
           </div>
 
           <div className="flex items-center gap-4">
@@ -239,7 +237,6 @@ export default function Layout({ children, currentPageName }) {
                   variant="ghost"
                   size="icon"
                   className="relative text-white hover:bg-white/10"
-                  title="View notifications"
                 >
                   <Bell className="w-5 h-5" />
                   {unreadCount > 0 && (
@@ -283,12 +280,6 @@ export default function Layout({ children, currentPageName }) {
         } ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"} overflow-hidden flex flex-col`}
       >
         <div className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {sidebarOpen && (
-            <div className="px-3 py-2 mb-4">
-              <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Navigation</p>
-              <p className="text-xs text-gray-500 mt-1">Click sections to expand and view options</p>
-            </div>
-          )}
           {navigationSections.map((section) => (
             <div key={section.title}>
               {section.items ? (
@@ -298,7 +289,6 @@ export default function Layout({ children, currentPageName }) {
                     className={`glass-hover w-full flex items-center justify-between px-3 py-2 rounded-lg text-white transition-all ${
                       !sidebarOpen && "md:justify-center"
                     }`}
-                    title={!sidebarOpen ? section.title : `Expand ${section.title} menu`}
                   >
                     <div className="flex items-center gap-3">
                       <section.icon className="w-5 h-5" />
@@ -336,7 +326,6 @@ export default function Layout({ children, currentPageName }) {
                   className={`glass-hover flex items-center gap-3 px-3 py-2 rounded-lg text-white transition-all ${
                     isActive(section.path) ? "neon-border" : ""
                   } ${!sidebarOpen && "md:justify-center"}`}
-                  title={!sidebarOpen ? section.title : `Go to ${section.title}`}
                 >
                   <section.icon className="w-5 h-5" />
                   {sidebarOpen && <span>{section.title}</span>}

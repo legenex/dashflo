@@ -34,7 +34,7 @@ import DashboardConfig from './pages/DashboardConfig';
 import ApiWebhooks from './pages/ApiWebhooks';
 import UserManagement from './pages/UserManagement';
 import Notifications from './pages/Notifications';
-import __Layout from './Layout.jsx';
+import Layout from './Layout.jsx';
 
 
 export const PAGES = {
@@ -79,5 +79,5 @@ export const PAGES = {
 export const pagesConfig = {
     mainPage: "Dashboard",
     Pages: PAGES,
-    Layout: __Layout,
+    Layout: Layout,
 };
