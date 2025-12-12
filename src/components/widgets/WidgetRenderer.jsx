@@ -198,6 +198,7 @@ export default function WidgetRenderer({ widget, dateRange, customFilters }) {
         {widget.type === 'area_chart' && <AreaChartWidget data={data} config={widget} libraryMetrics={libraryMetrics} />}
       </CardContent>
     </Card>
+    </>
   );
 }
 
