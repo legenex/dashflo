@@ -19,12 +19,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import KPIWithTrendWidget from "./KPIWithTrendWidget";
 import StatsBarWidget from "./StatsBarWidget";
+import WidgetConfigPanel from "./WidgetConfigPanel";
 
 const COLORS = ['#00d4ff', '#a855f7', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899'];
 
 export default function WidgetRenderer({ widget, dateRange, customFilters }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [showConfigPanel, setShowConfigPanel] = React.useState(false);
 
   const { data: libraryMetrics } = useQuery({
     queryKey: ['library-metrics', widget.query_config?.metric_ids],
@@ -62,7 +64,19 @@ export default function WidgetRenderer({ widget, dateRange, customFilters }) {
   });
 
   const handleEdit = () => {
-    navigate(createPageUrl(`WidgetBuilder?edit=${widget.id}`));
+    setShowConfigPanel(true);
+  };
+
+  const handleQuickSave = async (updatedConfig) => {
+    try {
+      await base44.entities.Widget.update(widget.id, updatedConfig);
+      queryClient.invalidateQueries(['dashboard-widgets']);
+      queryClient.invalidateQueries(['widget-data']);
+      setShowConfigPanel(false);
+    } catch (error) {
+      console.error('Failed to update widget:', error);
+      alert('Failed to save changes');
+    }
   };
 
   const handleDelete = () => {
@@ -94,7 +108,11 @@ export default function WidgetRenderer({ widget, dateRange, customFilters }) {
         <DropdownMenuContent align="end" className="glass-card border-white/10">
           <DropdownMenuItem onClick={handleEdit} className="text-white hover:bg-white/10 cursor-pointer">
             <Pencil className="w-4 h-4 mr-2" />
-            Edit Widget
+            Quick Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate(createPageUrl(`WidgetBuilder?edit=${widget.id}`))} className="text-white hover:bg-white/10 cursor-pointer">
+            <Pencil className="w-4 h-4 mr-2" />
+            Advanced Edit
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleDelete} className="text-red-400 hover:bg-red-500/20 cursor-pointer">
             <Trash2 className="w-4 h-4 mr-2" />
@@ -154,8 +172,16 @@ export default function WidgetRenderer({ widget, dateRange, customFilters }) {
   }
 
   return (
-    <Card className={`glass-card border-white/10 ${widthClass} relative group overflow-hidden ${widget.type === 'kpi_with_trend' ? 'h-[280px]' : ''}`}>
-      {WidgetMenu}
+    <>
+      {showConfigPanel && (
+        <WidgetConfigPanel
+          widget={widget}
+          onClose={() => setShowConfigPanel(false)}
+          onSave={handleQuickSave}
+        />
+      )}
+      <Card className={`glass-card border-white/10 ${widthClass} relative group overflow-hidden ${widget.type === 'kpi_with_trend' ? 'h-[280px]' : ''}`}>
+        {WidgetMenu}
       {showTitle && (
         <CardHeader className="px-3 py-2 text-sm flex flex-col space-y-1.5">
           <CardTitle className="text-white text-sm font-bold uppercase tracking-wide">{widget.name}</CardTitle>
