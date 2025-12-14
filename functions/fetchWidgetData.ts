@@ -4,7 +4,17 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    const { data_source, query_config, date_range, custom_filters } = await req.json();
+    let data_source, query_config, date_range, custom_filters;
+    try {
+      const body = await req.json();
+      ({ data_source, query_config, date_range, custom_filters } = body);
+    } catch (jsonError) {
+      console.error('Failed to parse request body:', jsonError.message);
+      return Response.json({ 
+        error: 'Invalid request body', 
+        details: 'Request must include valid JSON with data_source and query_config' 
+      }, { status: 400 });
+    }
 
     console.log('\n========================================');
     console.log('FETCH WIDGET DATA REQUEST');
