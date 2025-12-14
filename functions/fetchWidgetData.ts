@@ -3,16 +3,6 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    let user = null;
-    try {
-      user = await base44.auth.me();
-    } catch (e) {
-      console.log('User not authenticated:', e.message);
-    }
-    
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const { data_source, query_config, date_range, custom_filters } = await req.json();
 
