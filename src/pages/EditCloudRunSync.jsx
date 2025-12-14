@@ -79,7 +79,8 @@ export default function EditCloudRunSync() {
     mutationFn: (data) => {
       const dataToSave = {
         ...data,
-        detected_schema: detectedFields.length > 0 ? { fields: detectedFields } : null
+        detected_schema: detectedFields.length > 0 ? { fields: detectedFields } : null,
+        local_table_name: data.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
       };
       
       if (configId) {
