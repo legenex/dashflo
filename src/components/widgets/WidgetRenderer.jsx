@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -215,18 +216,23 @@ function TableWidget({ data, config, libraryMetrics }) {
     return <div className="text-gray-400">No columns configured</div>;
   }
 
+  // Create a mapping of field names to their display names (aliases)
   const columnDisplayNames = {};
   const configColumns = config.query_config?.columns || [];
   
   configColumns.forEach(col => {
+    // Handle both old string format and new object format
     if (typeof col === 'string') {
+      // No alias mapping needed for string-only column definitions, as they don't have explicit aliases
     } else if (typeof col === 'object' && col.field) {
+      // New format: object with field, alias, visible
       if (col.alias && col.alias.trim() !== '') {
         columnDisplayNames[col.field] = col.alias;
       }
     }
   });
 
+  // Helper function to get display name for a column
   const getColumnDisplayName = (columnName) => {
     if (columnDisplayNames[columnName]) {
       return columnDisplayNames[columnName];
@@ -234,7 +240,9 @@ function TableWidget({ data, config, libraryMetrics }) {
     return columnName;
   };
 
+  // Helper function to get actual field name
   const getFieldName = (column) => {
+    // Handle both string format and object format
     if (typeof column === 'string') {
       return column;
     }
@@ -366,39 +374,15 @@ function TableWidget({ data, config, libraryMetrics }) {
   const formatCell = (value, column) => {
     if (value === null || value === undefined) return '-';
     const fieldName = getFieldName(column);
-    
-    // FIRST: Check library metrics for explicit format
-    const matchingLibraryMetric = libraryMetrics.find((metric) => (metric.definition.alias || metric.name) === fieldName);
-    if (matchingLibraryMetric && matchingLibraryMetric.definition.format) {
-      return applyFormat(value, matchingLibraryMetric.definition.format);
-    }
-    
-    // SECOND: Check local aggregations for explicit format
-    const aggregations = config.query_config?.aggregations || [];
-    const matchingAgg = aggregations.find((agg) => (agg.alias || `${agg.function}_${agg.field}`) === fieldName);
-    if (matchingAgg && matchingAgg.format) {
-      return applyFormat(value, matchingAgg.format);
-    }
-    
-    // THIRD: Check display config for custom field formats
-    const fieldFormats = config.display_config?.field_formats || {};
-    const customFormat = fieldFormats[fieldName];
-    if (customFormat) {
-      return applyFormat(value, customFormat);
-    }
-    
-    // FOURTH: Special case formatting (only if no explicit format is set)
     const columnLower = fieldName.toLowerCase();
     const numValue = typeof value === 'string' ? parseFloat(value) : value;
-    
     if (columnLower.includes('return') && (columnLower.includes('rate') || columnLower.includes('%')) || columnLower === 'return rate' || columnLower === 'return %') {
       if (!isNaN(numValue)) {
         const colorClass = numValue > 5 ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400';
         return <span className={`px-2 py-1 rounded ${colorClass}`}>{numValue.toFixed(2)}%</span>;
       }
     }
-    
-    if ((columnLower.includes('conversion') && columnLower.includes('rate')) || columnLower === 'conversion rate') {
+    if (columnLower.includes('conversion') && columnLower.includes('rate') || columnLower === 'conversion rate' || columnLower === 'cpl') {
       if (!isNaN(numValue)) {
         let colorClass = '';
         if (numValue < 10) colorClass = 'bg-red-500/20 text-red-400';
@@ -408,8 +392,14 @@ function TableWidget({ data, config, libraryMetrics }) {
         return <span className={`px-2 py-1 rounded ${colorClass}`}>{numValue.toFixed(2)}%</span>;
       }
     }
-    
-    // LAST: Auto-format based on field name (fallback)
+    const matchingLibraryMetric = libraryMetrics.find((metric) => (metric.definition.alias || metric.name) === fieldName);
+    if (matchingLibraryMetric && matchingLibraryMetric.definition.format) return applyFormat(value, matchingLibraryMetric.definition.format);
+    const aggregations = config.query_config?.aggregations || [];
+    const matchingAgg = aggregations.find((agg) => (agg.alias || `${agg.function}_${agg.field}`) === fieldName);
+    if (matchingAgg && matchingAgg.format) return applyFormat(value, matchingAgg.format);
+    const fieldFormats = config.display_config?.field_formats || {};
+    const customFormat = fieldFormats[fieldName];
+    if (customFormat) return applyFormat(value, customFormat);
     return autoFormat(value, fieldName);
   };
 
@@ -478,13 +468,14 @@ function TableWidget({ data, config, libraryMetrics }) {
                 {columns.map((col) => {
                   const fieldName = getFieldName(col);
                   const cellValue = formatCell(row[fieldName], col);
+                  // Ensure stringValue is always a string, especially when cellValue might be a ReactNode
                   const stringValue = typeof cellValue === 'string' ? cellValue : String(row[fieldName] || '');
                   
                   return (
                     <TableCell 
                       key={fieldName} 
                       className="text-white h-12 max-w-[200px] overflow-hidden"
-                      title={stringValue}
+                      title={stringValue} // Show full content on hover
                     >
                       <div className="line-clamp-2 overflow-hidden text-ellipsis">
                         {cellValue}

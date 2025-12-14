@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,22 +23,6 @@ export default function MetricsLibrary() {
     queryFn: () => base44.entities.MetricDefinition.list('-created_date'),
     initialData: [],
   });
-
-  // Check URL for edit parameter
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const editId = urlParams.get('edit');
-    
-    if (editId && metrics.length > 0) {
-      const metricToEdit = metrics.find(m => m.id === editId);
-      if (metricToEdit) {
-        setSelectedMetric(metricToEdit);
-        setIsEditing(true);
-        // Clean up URL
-        window.history.replaceState({}, '', window.location.pathname);
-      }
-    }
-  }, [metrics]);
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.MetricDefinition.delete(id),
