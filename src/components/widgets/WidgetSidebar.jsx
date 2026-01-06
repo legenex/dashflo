@@ -417,9 +417,9 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
       )}
 
       {showMetricPicker && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center" onClick={() => setShowMetricPicker(false)}>
+        <div className="fixed inset-0 bg-black/50 z-[60]" onClick={() => setShowMetricPicker(false)}>
           <div 
-            className="fixed inset-y-0 right-0 w-96 bg-[#1a1a3e] border-l border-white/10 shadow-2xl flex flex-col"
+            className="fixed inset-y-0 right-0 w-96 bg-[#1a1a3e] border-l border-white/10 shadow-2xl z-[70] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-4 border-b border-white/10">
