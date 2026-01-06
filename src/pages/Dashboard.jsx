@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -38,6 +37,7 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import KPICard from "../components/dashboard/KPICard";
 import RecentLeadsTable from "../components/dashboard/RecentLeadsTable";
 import WidgetRenderer from "../components/widgets/WidgetRenderer";
+import WidgetSidebar from "../components/widgets/WidgetSidebar";
 import FilterManager from "../components/dashboard/FilterManager";
 import SavedFilterBar from "../components/dashboard/SavedFilterBar";
 

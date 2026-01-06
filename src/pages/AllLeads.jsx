@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import WidgetRenderer from "../components/widgets/WidgetRenderer";
+import WidgetSidebar from "../components/widgets/WidgetSidebar";
 import FilterManager from "../components/dashboard/FilterManager";
 import SavedFilterBar from "../components/dashboard/SavedFilterBar";
 
