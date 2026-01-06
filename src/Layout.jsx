@@ -1,445 +1,501 @@
+import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import { Home, Building2, Users, Receipt, Activity, BarChart3, Database, Settings, FileText, Package, ShoppingCart, ChevronLeft, ChevronRight, X, Plus, GripVertical, ChevronDown } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-import React, { useState, useEffect } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { base44 } from "@/api/base44Client";
-import {
-  LayoutDashboard,
-  FileText,
-  Users,
-  DollarSign,
-  BarChart3,
-  Settings,
-  ChevronDown,
-  Search,
-  Bell,
-  Menu,
-  X,
-  LogOut,
-  User,
-  Building2,
-  Palette,
-  BellRing,
-  Link as LinkIcon,
-  Shield
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+const cn = (...classes) => classes.filter(Boolean).join(' ');
 
-const navigationSections = [
-  {
-    title: "Dashboards",
-    icon: LayoutDashboard,
-    items: [
-      { name: "Overview", path: "Dashboard" },
-      { name: "Buyer Performance", path: "BuyerPerformance" },
-      { name: "Supplier Performance", path: "SupplierPerformance" },
-      { name: "Ad Metrics", path: "AdMetrics" },
-      { name: "Active States", path: "ActiveStates" }
-    ]
-  },
-  {
-    title: "Leads",
-    icon: FileText,
-    items: [
-      { name: "All Leads", path: "AllLeads" },
-      { name: "Rejections", path: "Rejections" },
-      { name: "Return Requests", path: "Returns" }
-    ]
-  },
-  {
-    title: "Management",
-    icon: Users,
-    items: [
-      { name: "Verticals", path: "Verticals" },
-      { name: "Buyers", path: "Buyers" },
-      { name: "Suppliers", path: "Suppliers" },
-      { name: "Sources", path: "Sources" },
-      { name: "Brands", path: "Brands" },
-      { name: "States", path: "ManageStates" }
-    ]
-  },
-  {
-    title: "Reports",
-    icon: BarChart3,
-    items: [
-      { name: "Create Report", path: "CreateReport" },
-      { name: "Saved Reports", path: "SavedReports" },
-      { name: "Analytics", path: "Analytics" }
-    ]
-  },
-  {
-    title: "Billing",
-    icon: DollarSign,
-    path: "Billing"
-  },
-  {
-    title: "Dashboard Config",
-    icon: Settings,
-    items: [
-      { name: "Widget Builder", path: "WidgetBuilder" },
-      { name: "Metrics Library", path: "MetricsLibrary" }
-    ]
-  },
-  {
-    title: "Admin Settings",
-    icon: Settings,
-    items: [
-      { name: "Overview", path: "AdminSettings" },
-      { name: "Data Sync Sources", path: "DataSyncSources" },
-      { name: "Debug Data", path: "DebugData" }
-    ]
-  }
-];
+const iconMap = {
+  'Home': Home,
+  'Building2': Building2,
+  'Users': Users,
+  'Receipt': Receipt,
+  'Activity': Activity,
+  'BarChart3': BarChart3,
+  'Database': Database,
+  'Settings': Settings,
+  'FileText': FileText,
+  'Package': Package,
+  'ShoppingCart': ShoppingCart
+};
+
+const iconOptions = Object.keys(iconMap);
 
 export default function Layout({ children, currentPageName }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [expandedSection, setExpandedSection] = useState(() => {
-    // Initialize from localStorage or default to "Dashboards"
-    const saved = localStorage.getItem('expandedSection');
-    return saved || "Dashboards";
-  });
-  const [user, setUser] = useState(null);
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [newItem, setNewItem] = useState({ label: '', icon: 'Home', parent_id: null, type: 'page' });
+  const [expandedItems, setExpandedItems] = useState({});
   const location = useLocation();
-  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    loadUser();
-    loadNotifications();
-  }, []);
-
-  // Save expanded section to localStorage whenever it changes
-  useEffect(() => {
-    if (expandedSection) {
-      localStorage.setItem('expandedSection', expandedSection);
-    } else {
-      localStorage.removeItem('expandedSection'); // Remove if section is collapsed
+  const { data: navItems = [] } = useQuery({
+    queryKey: ['navigationItems'],
+    queryFn: async () => {
+      const items = await base44.entities.NavigationItem.list('order');
+      if (items.length === 0) {
+        const dashboardConfig = await base44.entities.DashboardConfig.create({
+          name: 'Overview',
+          layout: []
+        });
+        await base44.entities.NavigationItem.create({
+          label: 'Overview',
+          icon: 'Home',
+          dashboard_config_id: dashboardConfig.id,
+          order: 1
+        });
+        return await base44.entities.NavigationItem.list('order');
+      }
+      return items;
     }
-  }, [expandedSection]);
+  });
 
-  const loadUser = async () => {
-    try {
-      const currentUser = await base44.auth.me();
-      setUser(currentUser);
-    } catch (error) {
-      console.error("Error loading user:", error);
+  const addItemMutation = useMutation({
+    mutationFn: async (item) => {
+      let dashboardConfigId = null;
+      
+      if (item.type !== 'separator') {
+        const dashboardConfig = await base44.entities.DashboardConfig.create({
+          name: item.label,
+          layout: []
+        });
+        dashboardConfigId = dashboardConfig.id;
+      }
+      
+      const navItem = await base44.entities.NavigationItem.create({
+        label: item.label,
+        type: item.type || 'page',
+        icon: item.icon,
+        dashboard_config_id: dashboardConfigId,
+        parent_id: item.parent_id || null,
+        order: navItems.length + 1
+      });
+      
+      return navItem;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['navigationItems'] });
+      setShowAddDialog(false);
+      setNewItem({ label: '', icon: 'Home', parent_id: null, type: 'page' });
     }
-  };
+  });
 
-  const loadNotifications = async () => {
-    try {
-      const currentUser = await base44.auth.me();
-      const notifs = await base44.entities.Notification.filter(
-        { user_id: currentUser.id },
-        "-created_date",
-        10
+  const updateItemMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.NavigationItem.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['navigationItems'] });
+      setEditingItem(null);
+      setShowAddDialog(false);
+    }
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: (id) => base44.entities.NavigationItem.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['navigationItems'] });
+    }
+  });
+
+  const reorderItemsMutation = useMutation({
+    mutationFn: async (reorderedItems) => {
+      await Promise.all(
+        reorderedItems.map((item, index) => 
+          base44.entities.NavigationItem.update(item.id, { order: index + 1 })
+        )
       );
-      setNotifications(notifs);
-      setUnreadCount(notifs.filter(n => !n.read).length);
-    } catch (error) {
-      console.error("Error loading notifications:", error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['navigationItems'] });
     }
+  });
+
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+    
+    const items = Array.from(navItems);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+    
+    queryClient.setQueryData(['navigationItems'], items);
+    reorderItemsMutation.mutate(items);
   };
 
-  const markAsRead = async (notifId) => {
-    await base44.entities.Notification.update(notifId, { read: true });
-    loadNotifications();
+  const isActive = (configId) => {
+    if (!configId) return false;
+    const params = new URLSearchParams(location.search);
+    return params.get('id') === configId;
   };
 
-  const handleLogout = () => {
-    base44.auth.logout();
+  const getIcon = (iconName) => {
+    return iconMap[iconName] || Home;
   };
 
-  const toggleSection = (section) => {
-    setExpandedSection(expandedSection === section ? null : section);
+  const toggleExpanded = (itemId) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [itemId]: !prev[itemId]
+    }));
   };
 
-  const isActive = (path) => {
-    return location.pathname === createPageUrl(path);
-  };
+  // Group items into parent and children
+  const topLevelItems = navItems.filter(item => !item.parent_id);
+  const getChildren = (parentId) => navItems.filter(item => item.parent_id === parentId);
+  const hasChildren = (itemId) => navItems.some(item => item.parent_id === itemId);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0f0f23] via-[#1a1a3e] to-[#0f0f23]">
-      <style>{`
-        .glass-card {
-          background: rgba(255, 255, 255, 0.03);
-          backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        }
-        .glass-hover:hover {
-          background: rgba(255, 255, 255, 0.06);
-          border-color: rgba(0, 212, 255, 0.3);
-          box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
-        }
-        .neon-border {
-          border: 1px solid rgba(168, 85, 247, 0.4);
-          box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
-        }
-        .gradient-text {
-          background: linear-gradient(135deg, #00d4ff 0%, #a855f7 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-      `}</style>
-
-      {/* Top Navigation */}
-      <div className="glass-card fixed top-0 left-0 right-0 h-16 z-50 flex items-center px-4 md:px-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => {
-            if (window.innerWidth < 768) {
-              setMobileSidebarOpen(!mobileSidebarOpen);
-            } else {
-              setSidebarOpen(!sidebarOpen);
-            }
-          }}
-          className="text-white hover:bg-white/10"
-        >
-          <Menu className="w-5 h-5" />
-        </Button>
-
-        <div className="flex-1 flex items-center justify-between ml-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00d4ff] to-[#a855f7] flex items-center justify-center">
-              <LayoutDashboard className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-bold gradient-text hidden md:block">
-              Dashflo
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="hidden md:block w-64">
-              <Input
-                placeholder="Search..."
-                className="glass-card border-white/10 text-white placeholder:text-gray-400"
-              />
-            </div>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="relative text-white hover:bg-white/10"
-                >
-                  <Bell className="w-5 h-5" />
-                  {unreadCount > 0 && (
-                    <Badge className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center bg-red-500 text-white text-xs p-0">
-                      {unreadCount}
-                    </Badge>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="glass-card border-white/10 w-80">
-                <DropdownMenuLabel className="text-white">Notifications</DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-white/10" />
-                {notifications.length === 0 ? (
-                  <div className="p-4 text-center text-gray-400">No notifications</div>
-                ) : (
-                  notifications.map((notif) => (
-                    <DropdownMenuItem
-                      key={notif.id}
-                      onClick={() => markAsRead(notif.id)}
-                      className="text-white hover:bg-white/10 cursor-pointer"
-                    >
-                      <div className="flex flex-col gap-1">
-                        <div className="font-medium">{notif.title || notif.message}</div>
-                        {!notif.read && (
-                          <Badge className="bg-blue-500 text-white w-fit">New</Badge>
-                        )}
-                      </div>
-                    </DropdownMenuItem>
-                  ))
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </div>
-
+    <div className="flex h-screen bg-slate-50">
       {/* Sidebar */}
-      <div
-        className={`glass-card fixed left-0 top-16 bottom-0 z-40 transition-all duration-300 ${
-          sidebarOpen ? "w-64" : "w-0 md:w-16"
-        } ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"} overflow-hidden flex flex-col`}
+      <div 
+        className={cn(
+          "bg-gradient-to-b from-red-500 to-red-600 text-white transition-all duration-300 flex flex-col",
+          isCollapsed ? "w-16" : "w-64"
+        )}
       >
-        <div className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {navigationSections.map((section) => (
-            <div key={section.title}>
-              {section.items ? (
-                <div>
-                  <button
-                    onClick={() => toggleSection(section.title)}
-                    className={`glass-hover w-full flex items-center justify-between px-3 py-2 rounded-lg text-white transition-all ${
-                      !sidebarOpen && "md:justify-center"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <section.icon className="w-5 h-5" />
-                      {sidebarOpen && <span>{section.title}</span>}
-                    </div>
-                    {sidebarOpen && (
-                      <ChevronDown
-                        className={`w-4 h-4 transition-transform ${
-                          expandedSection === section.title ? "rotate-180" : ""
-                        }`}
-                      />
+        <div className="flex-1 overflow-y-auto py-6">
+          <nav className="space-y-1 px-3">
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="navigation" isDropDisabled={!isEditMode || isCollapsed}>
+                {(provided, snapshot) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className={cn(
+                      "space-y-1",
+                      snapshot.isDraggingOver && "bg-red-700/20 rounded-lg p-1"
                     )}
-                  </button>
-                  {expandedSection === section.title && sidebarOpen && (
-                    <div className="ml-4 mt-1 space-y-1">
-                      {section.items.map((item) => (
-                        <Link
-                          key={item.path}
-                          to={createPageUrl(item.path)}
-                          className={`block px-3 py-2 rounded-lg text-sm transition-all ${
-                            isActive(item.path)
-                              ? "neon-border text-[#00d4ff]"
-                              : "text-gray-300 hover:bg-white/10"
-                          }`}
-                        >
-                          {item.name}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <Link
-                  to={createPageUrl(section.path)}
-                  className={`glass-hover flex items-center gap-3 px-3 py-2 rounded-lg text-white transition-all ${
-                    isActive(section.path) ? "neon-border" : ""
-                  } ${!sidebarOpen && "md:justify-center"}`}
-                >
-                  <section.icon className="w-5 h-5" />
-                  {sidebarOpen && <span>{section.title}</span>}
-                </Link>
-              )}
-            </div>
-          ))}
+                  >
+                    {topLevelItems.map((item, index) => {
+                      const Icon = getIcon(item.icon);
+                      const itemActive = item.type !== 'separator' && isActive(item.dashboard_config_id);
+                      const children = getChildren(item.id);
+                      const isExpanded = expandedItems[item.id];
+                      const itemHasChildren = hasChildren(item.id);
+                      const isSeparator = item.type === 'separator';
+
+                      return (
+                        <div key={item.id}>
+                          <Draggable 
+                            draggableId={item.id} 
+                            index={index}
+                            isDragDisabled={!isEditMode || isCollapsed}
+                          >
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                className={cn(
+                                  "relative group",
+                                  snapshot.isDragging && "opacity-50"
+                                )}
+                              >
+                                <div className="flex items-center gap-1">
+                                  {isEditMode && !isCollapsed && (
+                                    <div
+                                      {...provided.dragHandleProps}
+                                      className="cursor-grab active:cursor-grabbing p-1 hover:bg-red-700/30 rounded transition-colors"
+                                    >
+                                      <GripVertical className="w-4 h-4 text-white/60" />
+                                    </div>
+                                  )}
+                                  <div className="flex-1 flex items-center gap-1">
+                                    {itemHasChildren && !isCollapsed && (
+                                      <button
+                                        onClick={() => toggleExpanded(item.id)}
+                                        className="p-1 hover:bg-red-700/30 rounded transition-colors"
+                                      >
+                                        <ChevronDown className={cn(
+                                          "w-4 h-4 text-white/60 transition-transform",
+                                          !isExpanded && "-rotate-90"
+                                        )} />
+                                      </button>
+                                    )}
+                                    {isSeparator ? (
+                                      <button
+                                        onClick={() => itemHasChildren && toggleExpanded(item.id)}
+                                        className={cn(
+                                          "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-left",
+                                          isEditMode && !isCollapsed && "border-2 border-dashed border-white/20",
+                                          "hover:bg-red-600/50 text-white/90"
+                                        )}
+                                      >
+                                        <Icon className="w-5 h-5 shrink-0" />
+                                        {!isCollapsed && <span className="font-medium">{item.label}</span>}
+                                      </button>
+                                    ) : (
+                                      <Link to={`${createPageUrl('Dashboard')}?id=${item.dashboard_config_id}`} className="flex-1">
+                                        <button
+                                          className={cn(
+                                            "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-left",
+                                            isEditMode && !isCollapsed && "border-2 border-dashed border-white/20",
+                                            itemActive 
+                                              ? "bg-red-700/50 text-white" 
+                                              : "hover:bg-red-600/50 text-white/90"
+                                          )}
+                                        >
+                                          <Icon className="w-5 h-5 shrink-0" />
+                                          {!isCollapsed && <span className="font-medium">{item.label}</span>}
+                                        </button>
+                                      </Link>
+                                    )}
+                                  </div>
+                                </div>
+                                {isEditMode && !isCollapsed && (
+                                  <div className="absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 bg-red-800 hover:bg-red-900 text-white"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        setEditingItem(item);
+                                        setNewItem({ label: item.label, icon: item.icon, parent_id: item.parent_id || null, type: item.type || 'page' });
+                                        setShowAddDialog(true);
+                                      }}
+                                    >
+                                      <Settings className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 bg-red-800 hover:bg-red-900 text-white"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        deleteItemMutation.mutate(item.id);
+                                      }}
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </Draggable>
+
+                          {/* Child items */}
+                          {isExpanded && !isCollapsed && children.map((child) => {
+                            const ChildIcon = getIcon(child.icon);
+                            const childActive = isActive(child.dashboard_config_id);
+
+                            return (
+                              <div key={child.id} className="ml-8 mt-1 relative group">
+                                <Link to={`${createPageUrl('Dashboard')}?id=${child.dashboard_config_id}`}>
+                                  <button
+                                    className={cn(
+                                      "w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-all text-left text-sm",
+                                      isEditMode && "border-2 border-dashed border-white/20",
+                                      childActive 
+                                        ? "bg-red-700/50 text-white" 
+                                        : "hover:bg-red-600/50 text-white/90"
+                                    )}
+                                  >
+                                    <ChildIcon className="w-4 h-4 shrink-0" />
+                                    <span className="font-medium">{child.label}</span>
+                                  </button>
+                                </Link>
+                                {isEditMode && (
+                                  <div className="absolute right-2 top-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-5 w-5 bg-red-800 hover:bg-red-900 text-white"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        setEditingItem(child);
+                                        setNewItem({ label: child.label, icon: child.icon, parent_id: child.parent_id || null, type: child.type || 'page' });
+                                        setShowAddDialog(true);
+                                      }}
+                                    >
+                                      <Settings className="w-2.5 h-2.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-5 w-5 bg-red-800 hover:bg-red-900 text-white"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        deleteItemMutation.mutate(child.id);
+                                      }}
+                                    >
+                                      <X className="w-2.5 h-2.5" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+            {isEditMode && !isCollapsed && (
+              <button
+                onClick={() => setShowAddDialog(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-dashed border-white/30 hover:border-white/60 hover:bg-red-700/20 text-white/70 hover:text-white transition-all mt-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="text-sm font-medium">Add Page</span>
+              </button>
+            )}
+          </nav>
         </div>
 
-        {/* User Profile at Bottom of Sidebar */}
-        <div className="border-t border-white/10 p-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className={`glass-hover w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white transition-all hover:bg-white/10 ${!sidebarOpen && "md:justify-center"}`}>
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00d4ff] to-[#a855f7] flex items-center justify-center flex-shrink-0">
-                  {user?.photo_url ? (
-                    <img src={user.photo_url} alt="" className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    <User className="w-4 h-4 text-white" />
-                  )}
-                </div>
-                {sidebarOpen && (
-                  <>
-                    <div className="flex-1 text-left overflow-hidden">
-                      <div className="text-sm font-medium truncate">{user?.full_name || "User"}</div>
-                      <div className="text-xs text-gray-400 truncate">{user?.email}</div>
-                    </div>
-                    <Settings className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  </>
-                )}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side={sidebarOpen ? "right" : "top"} className="glass-card border-white/10 w-56">
-              <DropdownMenuLabel className="text-white">
-                <div>{user?.full_name}</div>
-                <div className="text-xs text-gray-400">{user?.email}</div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem asChild>
-                <Link to={createPageUrl("Profile")} className="text-white hover:bg-white/10 cursor-pointer flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to={createPageUrl("CompanySettings")} className="text-white hover:bg-white/10 cursor-pointer flex items-center gap-2">
-                  <Building2 className="w-4 h-4" />
-                  Company
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to={createPageUrl("ThemeSettings")} className="text-white hover:bg-white/10 cursor-pointer flex items-center gap-2">
-                  <Palette className="w-4 h-4" />
-                  Theme
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to={createPageUrl("NotificationSettings")} className="text-white hover:bg-white/10 cursor-pointer flex items-center gap-2">
-                  <BellRing className="w-4 h-4" />
-                  Notifications
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to={createPageUrl("IntegrationSettings")} className="text-white hover:bg-white/10 cursor-pointer flex items-center gap-2">
-                  <LinkIcon className="w-4 h-4" />
-                  Integrations
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to={createPageUrl("SecuritySettings")} className="text-white hover:bg-white/10 cursor-pointer flex items-center gap-2">
-                  <Shield className="w-4 h-4" />
-                  Security
-                </Link>
-              </DropdownMenuItem>
-              {user?.role === "admin" && (
-                <>
-                  <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuItem asChild>
-                    <Link to={createPageUrl("AdminSettings")} className="text-white hover:bg-white/10 cursor-pointer flex items-center gap-2">
-                      <Settings className="w-4 h-4" />
-                      Admin Settings
-                    </Link>
-                  </DropdownMenuItem>
-                </>
-              )}
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="text-red-400 hover:bg-red-500/20 cursor-pointer flex items-center gap-2"
-              >
-                <LogOut className="w-4 h-4" />
-                Log Out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {/* Collapse Toggle */}
+        <div className="p-3 border-t border-red-700/30 space-y-2">
+          {!isCollapsed && (
+            <Button
+              variant="ghost"
+              onClick={() => setIsEditMode(!isEditMode)}
+              className="w-full hover:bg-red-600/50 text-white justify-start gap-2"
+            >
+              <Settings className="w-4 h-4" />
+              {isEditMode ? 'Done' : 'Edit Menu'}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="w-full hover:bg-red-600/50 text-white"
+          >
+            {isCollapsed ? (
+              <ChevronRight className="w-5 h-5" />
+            ) : (
+              <ChevronLeft className="w-5 h-5" />
+            )}
+          </Button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div
-        className={`transition-all duration-300 pt-16 ${
-          sidebarOpen ? "md:ml-64" : "md:ml-16"
-        }`}
-      >
-        <div className="p-4 md:p-8">{children}</div>
+      <div className="flex-1 overflow-auto">
+        {children}
       </div>
 
-      {/* Mobile overlay */}
-      {mobileSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 md:hidden"
-          onClick={() => setMobileSidebarOpen(false)}
-        />
-      )}
+      {/* Add/Edit Navigation Item Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={(open) => {
+        setShowAddDialog(open);
+        if (!open) {
+          setEditingItem(null);
+          setNewItem({ label: '', icon: 'Home', page: '' });
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingItem ? 'Edit Navigation Item' : 'Add Navigation Item'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <Select
+                value={newItem.type || 'page'}
+                onValueChange={(value) => setNewItem({ ...newItem, type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="page">Page</SelectItem>
+                  <SelectItem value="separator">Separator</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Label</Label>
+              <Input
+                placeholder={newItem.type === 'separator' ? 'e.g. Analytics' : 'e.g. Buyers'}
+                value={newItem.label}
+                onChange={(e) => setNewItem({ ...newItem, label: e.target.value })}
+              />
+            </div>
+            {newItem.type !== 'separator' && (
+              <div className="space-y-2">
+                <Label>Icon</Label>
+              <Select
+                value={newItem.icon}
+                onValueChange={(value) => setNewItem({ ...newItem, icon: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {iconOptions.map((iconName) => {
+                    const Icon = iconMap[iconName];
+                    return (
+                      <SelectItem key={iconName} value={iconName}>
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-4 h-4" />
+                          {iconName}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+                </Select>
+                </div>
+                )}
+                <div className="space-y-2">
+                <Label>Parent Menu (Optional)</Label>
+              <Select
+                value={newItem.parent_id || 'none'}
+                onValueChange={(value) => setNewItem({ ...newItem, parent_id: value === 'none' ? null : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Top level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Top level</SelectItem>
+                  {topLevelItems.filter(item => !editingItem || item.id !== editingItem.id).map((item) => {
+                    const Icon = getIcon(item.icon);
+                    return (
+                      <SelectItem key={item.id} value={item.id}>
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-4 h-4" />
+                          {item.label}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowAddDialog(false);
+              setEditingItem(null);
+              setNewItem({ label: '', icon: 'Home', parent_id: null, type: 'page' });
+            }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (editingItem) {
+                  updateItemMutation.mutate({ id: editingItem.id, data: newItem });
+                } else {
+                  addItemMutation.mutate(newItem);
+                }
+              }}
+              disabled={!newItem.label}
+            >
+              {editingItem ? 'Update' : 'Add'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
