@@ -88,6 +88,8 @@ export default function AllLeads() {
   const [editMode, setEditMode] = useState(false);
   const [pendingWidgetOrder, setPendingWidgetOrder] = useState([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [editingWidget, setEditingWidget] = useState(null);
+  const [showWidgetSidebar, setShowWidgetSidebar] = useState(false);
 
   const { data: widgets } = useQuery({
     queryKey: ['all-leads-widgets'],
@@ -551,6 +553,11 @@ export default function AllLeads() {
                               widget={widget}
                               dateRange={dateRange}
                               customFilters={customFilters}
+                              onEdit={(w) => {
+                                setEditingWidget(w);
+                                setShowWidgetSidebar(true);
+                              }}
+                              onDelete={() => {}}
                             />
                           </div>
                         )}
@@ -563,6 +570,18 @@ export default function AllLeads() {
             </Droppable>
           </DragDropContext>
         </>
+      )}
+
+      {showWidgetSidebar && (
+        <WidgetSidebar
+          widget={editingWidget}
+          onClose={() => {
+            setShowWidgetSidebar(false);
+            setEditingWidget(null);
+          }}
+          syncConfigs={syncConfigs}
+          dashboardPage="AllLeads"
+        />
       )}
     </div>
   );
