@@ -291,8 +291,7 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
                   {(formData.query_config.calculated_fields || []).map((field, index) => (
                     <div 
                       key={index} 
-                      className="flex items-center gap-2 p-2 glass-card border-white/10 rounded cursor-pointer hover:bg-white/5 transition-colors"
-                      onClick={() => editCalculatedField(field, index)}
+                      className="flex items-center gap-2 p-2 glass-card border-white/10 rounded"
                     >
                       <span className="text-gray-400 cursor-move">⋮⋮</span>
                       <span className="text-lg">📝</span>
