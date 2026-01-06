@@ -181,7 +181,7 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
 
   return (
     <>
-      <div className="fixed inset-y-0 right-0 w-96 glass-card border-l border-white/10 shadow-2xl z-50 flex flex-col">
+      <div className="fixed inset-y-0 right-0 w-96 bg-[#1a1a3e] border-l border-white/10 shadow-2xl z-50 flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
