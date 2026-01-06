@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X, Save, Search, Pencil } from "lucide-react";
+import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -270,6 +271,14 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => window.open(createPageUrl(`MetricsLibrary?edit=${metricId}`), '_blank')}
+                          className="text-[#00d4ff] hover:text-[#00d4ff]/80 h-6 w-6 p-0"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => removeMetric(metricId)}
                           className="text-red-400 hover:text-red-300 h-6 w-6 p-0"
                         >
@@ -409,9 +418,9 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
       )}
 
       {showMetricPicker && (
-        <div className="fixed inset-0 bg-black/50 z-[60]" onClick={() => setShowMetricPicker(false)}>
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center" onClick={() => setShowMetricPicker(false)}>
           <div 
-            className="fixed inset-y-0 right-0 w-96 bg-[#1a1a3e] border-l border-white/10 shadow-2xl z-[70] flex flex-col"
+            className="fixed inset-y-0 right-0 w-96 bg-[#1a1a3e] border-l border-white/10 shadow-2xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-4 border-b border-white/10">
