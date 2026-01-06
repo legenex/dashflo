@@ -217,7 +217,7 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
                   <SelectTrigger className="glass-card border-white/10 text-white mt-1">
                     <SelectValue placeholder="Select data source" />
                   </SelectTrigger>
-                  <SelectContent className="glass-card border-white/10">
+                  <SelectContent className="glass-card border-white/10 z-[100]">
                     {syncConfigs.map(source => (
                       <SelectItem key={source.id} value={source.local_table_name || source.name} className="text-white">
                         {source.name}
@@ -326,7 +326,7 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
                   <SelectTrigger className="glass-card border-white/10 text-white mt-1">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="glass-card border-white/10">
+                  <SelectContent className="glass-card border-white/10 z-[100]">
                     <SelectItem value="full" className="text-white">Full Width</SelectItem>
                     <SelectItem value="half" className="text-white">Half Width</SelectItem>
                     <SelectItem value="third" className="text-white">Third Width</SelectItem>
