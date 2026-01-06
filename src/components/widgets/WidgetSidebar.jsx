@@ -409,23 +409,31 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
       )}
 
       {showMetricPicker && (
-        <Dialog open={showMetricPicker} onOpenChange={setShowMetricPicker}>
-          <DialogContent className="glass-card border-white/10 max-w-md max-h-[600px] flex flex-col">
-            <DialogHeader>
-              <DialogTitle className="text-white">Add Metric</DialogTitle>
-            </DialogHeader>
-
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                placeholder="Search metrics..."
-                value={metricSearch}
-                onChange={(e) => setMetricSearch(e.target.value)}
-                className="glass-card border-white/10 text-white pl-9"
-              />
+        <div className="fixed inset-0 bg-black/50 z-[60]" onClick={() => setShowMetricPicker(false)}>
+          <div 
+            className="fixed inset-y-0 right-0 w-96 glass-card border-l border-white/10 shadow-2xl z-[70] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <h2 className="text-lg font-semibold text-white">Add Metric</h2>
+              <Button variant="ghost" size="icon" onClick={() => setShowMetricPicker(false)} className="text-gray-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </Button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4">
+            <div className="p-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="Search metrics..."
+                  value={metricSearch}
+                  onChange={(e) => setMetricSearch(e.target.value)}
+                  className="glass-card border-white/10 text-white pl-9"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {/* Data Source Fields */}
               {availableFields.length > 0 && (
                 <div>
@@ -468,8 +476,8 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
                 </button>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
+          </div>
+        </div>
       )}
     </>
   );
