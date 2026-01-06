@@ -108,6 +108,8 @@ export default function Dashboard() {
   const [editMode, setEditMode] = useState(false);
   const [pendingWidgetOrder, setPendingWidgetOrder] = useState([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [editingWidget, setEditingWidget] = useState(null);
+  const [showWidgetSidebar, setShowWidgetSidebar] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -716,6 +718,11 @@ export default function Dashboard() {
                               widget={widget}
                               dateRange={dateRange}
                               customFilters={customFilters}
+                              onEdit={(w) => {
+                                setEditingWidget(w);
+                                setShowWidgetSidebar(true);
+                              }}
+                              onDelete={() => {}}
                             />
                           </div>
                         )}
@@ -743,6 +750,18 @@ export default function Dashboard() {
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {showWidgetSidebar && (
+        <WidgetSidebar
+          widget={editingWidget}
+          onClose={() => {
+            setShowWidgetSidebar(false);
+            setEditingWidget(null);
+          }}
+          syncConfigs={syncConfigs}
+          dashboardPage="Dashboard"
+        />
       )}
     </div>
   );
