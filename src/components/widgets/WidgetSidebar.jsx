@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { X, Save, Search, Pencil } from "lucide-react";
-import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -268,14 +267,6 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
                         <Badge className="bg-white/10 text-white text-xs">
                           {metric.definition?.function || 'avg'}
                         </Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => window.open(createPageUrl(`MetricsLibrary?edit=${metricId}`), '_blank')}
-                          className="text-[#00d4ff] hover:text-[#00d4ff]/80 h-6 w-6 p-0"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
