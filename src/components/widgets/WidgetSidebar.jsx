@@ -434,6 +434,38 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Library Metrics */}
+              {libraryMetrics.length > 0 && (
+                <div>
+                  <Label className="text-gray-400 text-xs uppercase tracking-wider mb-2 block">
+                    Metrics Library
+                  </Label>
+                  <div className="space-y-1">
+                    {libraryMetrics
+                      .filter(metric => metric.name.toLowerCase().includes(metricSearch.toLowerCase()))
+                      .map(metric => {
+                        const isAdded = (formData.query_config.metric_ids || []).includes(metric.id);
+                        return (
+                          <button
+                            key={metric.id}
+                            onClick={() => {
+                              addMetric(metric.id);
+                              setShowMetricPicker(false);
+                            }}
+                            disabled={isAdded}
+                            className="w-full text-left p-2 rounded hover:bg-white/5 transition-colors flex items-center justify-between group disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <span className="text-white text-sm">{metric.name}</span>
+                            <Badge className="bg-purple-500/20 text-purple-400 text-xs">
+                              {metric.definition?.function || 'metric'}
+                            </Badge>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
               {/* Data Source Fields */}
               {availableFields.length > 0 && (
                 <div>
@@ -448,7 +480,10 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
                         return (
                           <button
                             key={field}
-                            onClick={() => addDataSourceField(field, fieldInfo?.type)}
+                            onClick={() => {
+                              addDataSourceField(field, fieldInfo?.type);
+                              setShowMetricPicker(false);
+                            }}
                             className="w-full text-left p-2 rounded hover:bg-white/5 transition-colors flex items-center justify-between group"
                           >
                             <span className="text-white text-sm">{field}</span>
