@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Save } from "lucide-react";
+import { X, Save, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CalculatedFieldModal from "./CalculatedFieldModal";
 
 export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardPage }) {
@@ -32,6 +33,8 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
   const [selectedSource, setSelectedSource] = useState(null);
   const [editingField, setEditingField] = useState(null);
   const [showFieldModal, setShowFieldModal] = useState(false);
+  const [showMetricPicker, setShowMetricPicker] = useState(false);
+  const [metricSearch, setMetricSearch] = useState('');
 
   const { data: libraryMetrics } = useQuery({
     queryKey: ['library-metrics'],
@@ -117,6 +120,28 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
   const addCalculatedField = () => {
     setEditingField(null);
     setShowFieldModal(true);
+    setShowMetricPicker(false);
+  };
+
+  const addDataSourceField = (fieldName, fieldType) => {
+    // Add as a simple aggregation
+    const newAgg = {
+      field: fieldName,
+      function: 'avg',
+      alias: fieldName,
+      format: 'number',
+      visible: true,
+      position: (formData.query_config.aggregations || []).length
+    };
+    
+    setFormData({
+      ...formData,
+      query_config: {
+        ...formData.query_config,
+        aggregations: [...(formData.query_config.aggregations || []), newAgg]
+      }
+    });
+    setShowMetricPicker(false);
   };
 
   const editCalculatedField = (field, index) => {
@@ -283,7 +308,7 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={addCalculatedField}
+                    onClick={() => setShowMetricPicker(true)}
                     disabled={!formData.data_source}
                     className="w-full glass-card border-white/10 text-[#00d4ff] hover:bg-[#00d4ff]/10"
                   >
@@ -381,6 +406,70 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
             setEditingField(null);
           }}
         />
+      )}
+
+      {showMetricPicker && (
+        <Dialog open={showMetricPicker} onOpenChange={setShowMetricPicker}>
+          <DialogContent className="glass-card border-white/10 max-w-md max-h-[600px] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="text-white">Add Metric</DialogTitle>
+            </DialogHeader>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search metrics..."
+                value={metricSearch}
+                onChange={(e) => setMetricSearch(e.target.value)}
+                className="glass-card border-white/10 text-white pl-9"
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-4">
+              {/* Data Source Fields */}
+              {availableFields.length > 0 && (
+                <div>
+                  <Label className="text-gray-400 text-xs uppercase tracking-wider mb-2 block">
+                    Data Source Fields
+                  </Label>
+                  <div className="space-y-1">
+                    {availableFields
+                      .filter(field => field.toLowerCase().includes(metricSearch.toLowerCase()))
+                      .map(field => {
+                        const fieldInfo = selectedSource?.detected_schema?.fields?.find(f => f.name === field);
+                        return (
+                          <button
+                            key={field}
+                            onClick={() => addDataSourceField(field, fieldInfo?.type)}
+                            className="w-full text-left p-2 rounded hover:bg-white/5 transition-colors flex items-center justify-between group"
+                          >
+                            <span className="text-white text-sm">{field}</span>
+                            <Badge className="bg-blue-500/20 text-blue-400 text-xs">
+                              {fieldInfo?.type || 'string'}
+                            </Badge>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* Calculated Fields */}
+              <div>
+                <Label className="text-gray-400 text-xs uppercase tracking-wider mb-2 block">
+                  Calculated Fields
+                </Label>
+                <button
+                  onClick={addCalculatedField}
+                  className="w-full text-left p-2 rounded hover:bg-white/5 transition-colors flex items-center gap-2 text-[#00d4ff]"
+                >
+                  <span className="text-lg">➕</span>
+                  <span className="text-sm">Create new calculated field</span>
+                </button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </>
   );
