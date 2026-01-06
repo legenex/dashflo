@@ -226,9 +226,8 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
                   </SelectContent>
                 </Select>
               </div>
-            </TabsContent>
 
-            <TabsContent value="data" className="p-4 space-y-4 m-0">
+              {/* Metrics Section */}
               <div>
                 <Label className="text-white text-sm mb-2 block">Metrics</Label>
                 <div className="space-y-2">
@@ -236,14 +235,13 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
                     const metric = libraryMetrics.find(m => m.id === metricId);
                     if (!metric) return null;
                     return (
-                      <div key={metricId} className="flex items-center justify-between p-2 glass-card border-white/10 rounded">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">🔢</span>
-                          <span className="text-white text-sm">{metric.name}</span>
-                          <Badge className="bg-white/10 text-white text-xs">
-                            {metric.definition?.function || 'avg'}
-                          </Badge>
-                        </div>
+                      <div key={metricId} className="flex items-center gap-2 p-2 glass-card border-white/10 rounded">
+                        <span className="text-gray-400 cursor-move">⋮⋮</span>
+                        <span className="text-lg">🔢</span>
+                        <span className="text-white text-sm flex-1">{metric.name}</span>
+                        <Badge className="bg-white/10 text-white text-xs">
+                          {metric.definition?.function || 'avg'}
+                        </Badge>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -257,32 +255,28 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
                   })}
 
                   {(formData.query_config.calculated_fields || []).map((field, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 glass-card border-white/10 rounded">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">📝</span>
-                        <span className="text-white text-sm">{field.name}</span>
-                        <Badge className="bg-purple-500/20 text-purple-400 text-xs">
-                          Calculated
-                        </Badge>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => editCalculatedField(field, index)}
-                          className="text-[#00d4ff] hover:text-[#00d4ff]/80 h-6 px-2 text-xs"
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeCalculatedField(index)}
-                          className="text-red-400 hover:text-red-300 h-6 w-6 p-0"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
+                    <div 
+                      key={index} 
+                      className="flex items-center gap-2 p-2 glass-card border-white/10 rounded cursor-pointer hover:bg-white/5 transition-colors"
+                      onClick={() => editCalculatedField(field, index)}
+                    >
+                      <span className="text-gray-400 cursor-move">⋮⋮</span>
+                      <span className="text-lg">📝</span>
+                      <span className="text-white text-sm flex-1">{field.name}</span>
+                      <Badge className="bg-purple-500/20 text-purple-400 text-xs">
+                        {field.format || 'number'}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeCalculatedField(index);
+                        }}
+                        className="text-red-400 hover:text-red-300 h-6 w-6 p-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
                     </div>
                   ))}
 
@@ -297,10 +291,12 @@ export default function WidgetSidebar({ widget, onClose, syncConfigs, dashboardP
                   </Button>
                 </div>
               </div>
+            </TabsContent>
 
+            <TabsContent value="data" className="p-4 space-y-4 m-0">
               {libraryMetrics.length > 0 && (
                 <div>
-                  <Label className="text-white text-sm mb-2 block">Available Metrics</Label>
+                  <Label className="text-white text-sm mb-2 block">Available Library Metrics</Label>
                   <div className="space-y-1 max-h-60 overflow-y-auto">
                     {libraryMetrics.map(metric => (
                       <button
