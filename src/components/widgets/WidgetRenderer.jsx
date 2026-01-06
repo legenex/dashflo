@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -123,6 +122,8 @@ export default function WidgetRenderer({ widget, dateRange, customFilters }) {
   }
 
   if (error) {
+    const is404 = error.message?.includes('404') || error.message?.includes('not found');
+    
     return (
       <Card className={`glass-card border-white/10 ${widthClass} relative group`}>
         {WidgetMenu}
@@ -132,7 +133,27 @@ export default function WidgetRenderer({ widget, dateRange, customFilters }) {
           </CardHeader>
         )}
         <CardContent className={showTitle ? 'pt-0' : 'pt-6'}>
-          <div className="text-red-400 text-sm">Error loading data: {error.message}</div>
+          <div className="space-y-2">
+            <div className="text-red-400 text-sm font-semibold">
+              {is404 ? '⚠️ Data Source Not Found' : '⚠️ Error Loading Data'}
+            </div>
+            {is404 ? (
+              <div className="text-gray-400 text-xs space-y-1">
+                <p>The data source "<span className="text-white font-mono">{widget.data_source}</span>" doesn't exist.</p>
+                <p className="mt-2">To fix this:</p>
+                <ul className="list-disc list-inside ml-2 space-y-1">
+                  <li>Check if the sync configuration exists in Data Sync Sources</li>
+                  <li>Edit this widget and select an existing data source</li>
+                  <li>Or create a new sync configuration with this name</li>
+                </ul>
+              </div>
+            ) : (
+              <div className="text-gray-400 text-xs">
+                <p className="font-mono text-red-300">{error.message}</p>
+                <p className="mt-2">Try refreshing or check the widget configuration.</p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     );
