@@ -22,7 +22,7 @@ import StatsBarWidget from "./StatsBarWidget";
 
 const COLORS = ['#00d4ff', '#a855f7', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899'];
 
-export default function WidgetRenderer({ widget, dateRange, customFilters }) {
+export default function WidgetRenderer({ widget, dateRange, customFilters, onEdit, onDelete }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -62,11 +62,17 @@ export default function WidgetRenderer({ widget, dateRange, customFilters }) {
   });
 
   const handleEdit = () => {
-    navigate(createPageUrl(`WidgetBuilder?edit=${widget.id}`));
+    if (onEdit) {
+      onEdit(widget);
+    } else {
+      navigate(createPageUrl(`WidgetBuilder?edit=${widget.id}`));
+    }
   };
 
   const handleDelete = () => {
-    if (confirm(`Are you sure you want to delete "${widget.name}"?`)) {
+    if (onDelete) {
+      onDelete(widget);
+    } else if (confirm(`Are you sure you want to delete "${widget.name}"?`)) {
       deleteMutation.mutate(widget.id);
     }
   };
