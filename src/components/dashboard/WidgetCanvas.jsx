@@ -12,7 +12,7 @@ import { aggregateRows } from "../../utils/metricUtils";
 
 const COL_SPAN_CLASS = { 1: 'col-span-1', 2: 'col-span-2', 3: 'col-span-3', 4: 'col-span-4' };
 
-function WidgetWrapper({ widget, editMode, onEdit, onRemove, children }) {
+function WidgetWrapper({ widget, editMode, onEdit, onRemove, onResize, children }) {
   return (
     <div className={`relative ${editMode ? 'outline-dashed outline-2 outline-white/20 rounded-xl' : ''}`}>
       {editMode && (
@@ -21,8 +21,18 @@ function WidgetWrapper({ widget, editMode, onEdit, onRemove, children }) {
             <Button size="icon" variant="ghost" onClick={onEdit} className="h-6 w-6 text-[#00d4ff] hover:bg-[#00d4ff]/20"><Pencil className="w-3 h-3" /></Button>
             <Button size="icon" variant="ghost" onClick={onRemove} className="h-6 w-6 text-red-400 hover:bg-red-500/20"><X className="w-3 h-3" /></Button>
           </div>
-          <div className="absolute top-2 left-2 z-20 text-xs text-gray-600 bg-black/40 rounded px-1.5 py-0.5">
-            {widget.col_span}/4
+          <div className="absolute top-2 left-2 z-20 flex gap-0.5">
+            {[1,2,3,4].map(n => (
+              <button
+                key={n}
+                onClick={() => onResize(n)}
+                className={`h-5 w-5 rounded text-[10px] font-bold transition-all ${
+                  (widget.col_span || 2) === n
+                    ? 'bg-[#00d4ff] text-white'
+                    : 'bg-black/40 text-gray-400 hover:bg-white/20 hover:text-white'
+                }`}
+              >{n}</button>
+            ))}
           </div>
         </>
       )}
@@ -34,7 +44,7 @@ function WidgetWrapper({ widget, editMode, onEdit, onRemove, children }) {
 export default function WidgetCanvas({
   widgets, metrics, layout, dataSource, dateRange, customFilters,
   currentDailyData, priorDailyData,
-  editMode, onDragEnd, onEditWidget, onRemoveWidget
+  editMode, onDragEnd, onEditWidget, onRemoveWidget, onResizeWidget
 }) {
   const currentTotals = React.useMemo(() => aggregateRows(currentDailyData, metrics), [currentDailyData, metrics]);
   const priorTotals   = React.useMemo(() => aggregateRows(priorDailyData,   metrics), [priorDailyData,   metrics]);
@@ -131,7 +141,7 @@ export default function WidgetCanvas({
                     className={`${COL_SPAN_CLASS[w.col_span || 2]} ${snap.isDragging ? 'opacity-60 z-50' : ''}`}
                     style={drag.draggableProps.style}
                   >
-                    <WidgetWrapper widget={w} editMode={editMode} onEdit={() => onEditWidget(w)} onRemove={() => onRemoveWidget(w.id)}>
+                    <WidgetWrapper widget={w} editMode={editMode} onEdit={() => onEditWidget(w)} onRemove={() => onRemoveWidget(w.id)} onResize={(n) => onResizeWidget(w.id, n)}>
                       {/* Drag handle */}
                       <div
                         {...drag.dragHandleProps}

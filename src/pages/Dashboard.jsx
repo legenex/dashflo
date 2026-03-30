@@ -219,6 +219,11 @@ export default function Dashboard() {
     queryClient.invalidateQueries(['dash-widgets']);
   };
 
+  const handleResizeWidget = async (widgetId, colSpan) => {
+    await base44.entities.DashboardWidget.update(widgetId, { col_span: colSpan });
+    queryClient.invalidateQueries(['dash-widgets']);
+  };
+
   const handleRemoveWidget = async (widgetId) => {
     if (!layout || !confirm('Remove this widget from the dashboard?')) return;
     const ids = (layout.widget_ids || []).filter(id => id !== widgetId);
@@ -366,6 +371,7 @@ export default function Dashboard() {
           onDragEnd={handleDragEnd}
           onEditWidget={setConfigWidget}
           onRemoveWidget={handleRemoveWidget}
+          onResizeWidget={handleResizeWidget}
         />
       )}
 
