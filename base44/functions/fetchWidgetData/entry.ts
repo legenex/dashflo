@@ -77,6 +77,11 @@ Deno.serve(async (req) => {
         if (actualPageSize === 0) break;
       }
 
+      // Normalise Cloud Run field names to lowercase
+      data = data.map(row =>
+        Object.fromEntries(Object.entries(row).map(([k, v]) => [k.toLowerCase(), v]))
+      );
+
     } else if (syncConfig.sync_type === 'bigquery') {
       // BigQuery: JWT → OAuth2 → REST API
       let sa;
