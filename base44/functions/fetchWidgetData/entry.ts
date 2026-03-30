@@ -418,16 +418,13 @@ Deno.serve(async (req) => {
 
     const allSyncConfigs = await base44.asServiceRole.entities.SyncConfiguration.list();
     
-    const syncConfig = allSyncConfigs.find(s => 
-      s.id === data_source || 
-      s.name === data_source || 
-      s.local_table_name === data_source
-    );
+    const isUuid = /^[0-9a-f-]{36}$/i.test(data_source);
+    const syncConfig = isUuid
+      ? allSyncConfigs.find(s => s.id === data_source)
+      : allSyncConfigs.find(s => s.name === data_source || s.local_table_name === data_source);
 
     if (!syncConfig) {
-      return Response.json({ 
-        error: `Data source "${data_source}" not found` 
-      }, { status: 404 });
+      throw new Error(`No SyncConfiguration found for data_source: "${data_source}". Check the widget's data_source field matches a SyncConfiguration id, name, or local_table_name.`);
     }
 
     let data = [];
