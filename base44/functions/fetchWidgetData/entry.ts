@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
 
       while (hasMore && pageCount < maxPages) {
         pageCount++;
-        const url = new URL(`${syncConfig.api_url}/ingest`);
+        const url = new URL(syncConfig.api_url);
         url.searchParams.set('offset', String(offset));
         if (date_range?.start) url.searchParams.set('start_date', date_range.start);
         if (date_range?.end) url.searchParams.set('end_date', date_range.end);
