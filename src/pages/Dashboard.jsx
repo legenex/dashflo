@@ -177,6 +177,27 @@ export default function Dashboard() {
       date_range: range,
       custom_filters: customFilters || [],
     });
+    const result = res.data || [];
+    if (result.length > 0) {
+      console.log('[Dashflo] Sample row keys:', Object.keys(result[0]));
+      console.log('[Dashflo] Sample row:', JSON.stringify(result[0]));
+      console.log('[Dashflo] Aggregations sent:', JSON.stringify(aggregations));
+    } else {
+      console.log('[Dashflo] fetchDaily returned empty. Aggregations sent:', JSON.stringify(aggregations));
+    }
+    return result;
+  };
+
+  const fetchTotals = async (range) => {
+    const resolvedSource = activeDataSource || orderedWidgets.find(w => w.data_source)?.data_source;
+    if (!resolvedSource) return [];
+    const res = await base44.functions.invoke('fetchWidgetData', {
+      data_source: resolvedSource,
+      sync_type: activeSyncType,
+      query_config: { aggregations, columns: [], filters: customFilters || [] },
+      date_range: range,
+      custom_filters: customFilters || [],
+    });
     return res.data || [];
   };
 
@@ -191,6 +212,20 @@ export default function Dashboard() {
     queryKey: ['daily-prior', prior, customFilters, activeDataSource],
     queryFn: () => fetchDaily(prior),
     enabled: !!activeDataSource || orderedWidgets.some(w => !!w.data_source),
+    initialData: [],
+  });
+
+  const { data: currentTotalsData = [] } = useQuery({
+    queryKey: ['totals-curr', dateRange, customFilters, activeDataSource],
+    queryFn: () => fetchTotals(dateRange),
+    enabled: !!activeDataSource,
+    initialData: [],
+  });
+
+  const { data: priorTotalsData = [] } = useQuery({
+    queryKey: ['totals-prior', prior, customFilters, activeDataSource],
+    queryFn: () => fetchTotals(prior),
+    enabled: !!activeDataSource,
     initialData: [],
   });
 
@@ -400,6 +435,8 @@ export default function Dashboard() {
             customFilters={customFilters}
             currentDailyData={currentDailyData}
             priorDailyData={priorDailyData}
+            currentTotalsRaw={currentTotalsData}
+            priorTotalsRaw={priorTotalsData}
             editMode={editMode}
             onDragEnd={handleDragEnd}
             onEditWidget={setConfigWidget}

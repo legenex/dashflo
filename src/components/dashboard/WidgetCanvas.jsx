@@ -81,11 +81,18 @@ function WidgetWrapper({ widget, editMode, onEdit, onRemove, onResize, children 
 
 export default function WidgetCanvas({
   widgets, metrics, layout, dataSource, syncType, dateRange, customFilters,
-  currentDailyData, priorDailyData,
+  currentDailyData, priorDailyData, currentTotalsRaw, priorTotalsRaw,
   editMode, onDragEnd, onEditWidget, onRemoveWidget, onResizeWidget
 }) {
-  const currentTotals = React.useMemo(() => aggregateRows(currentDailyData, metrics), [currentDailyData, metrics]);
-  const priorTotals   = React.useMemo(() => aggregateRows(priorDailyData,   metrics), [priorDailyData,   metrics]);
+  const currentTotals = React.useMemo(() => {
+    if (currentTotalsRaw?.length > 0) return currentTotalsRaw[0];
+    return aggregateRows(currentDailyData, metrics);
+  }, [currentTotalsRaw, currentDailyData, metrics]);
+
+  const priorTotals = React.useMemo(() => {
+    if (priorTotalsRaw?.length > 0) return priorTotalsRaw[0];
+    return aggregateRows(priorDailyData, metrics);
+  }, [priorTotalsRaw, priorDailyData, metrics]);
 
   function renderWidgetContent(widget) {
     const type = widget.type;
