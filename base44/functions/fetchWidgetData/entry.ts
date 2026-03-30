@@ -826,8 +826,7 @@ Deno.serve(async (req) => {
         const dateValue = row.date || row.created_date || row.timestamp || row.created_at || row.updated_date;
         
         if (!dateValue) {
-          console.log(`⚠️  Row has no date field, keeping it`);
-          return true;
+          return false; // exclude rows with no date when date filtering is active
         }
         
         const rowDate = new Date(dateValue);
