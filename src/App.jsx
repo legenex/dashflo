@@ -9,6 +9,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import PerformanceOverview from './pages/PerformanceOverview';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -49,6 +50,7 @@ const AuthenticatedApp = () => {
           <MainPage />
         </LayoutWrapper>
       } />
+      <Route path="/performance" element={<PerformanceOverview />} />
       {Object.entries(Pages).map(([path, Page]) => (
         <Route
           key={path}
