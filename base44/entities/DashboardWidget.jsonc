@@ -1,0 +1,101 @@
+{
+  "name": "DashboardWidget",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "stat_bar",
+        "metric_card",
+        "table",
+        "line_chart",
+        "bar_chart",
+        "area_chart",
+        "combo_chart"
+      ],
+      "description": "Widget visualization type"
+    },
+    "title": {
+      "type": "string"
+    },
+    "metric_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "CustomMetric field_ids"
+    },
+    "dimension": {
+      "type": "string",
+      "description": "Row grouping field for tables/charts"
+    },
+    "column_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Ordered column field_ids for tables"
+    },
+    "sort_field": {
+      "type": "string"
+    },
+    "sort_direction": {
+      "type": "string",
+      "enum": [
+        "asc",
+        "desc"
+      ],
+      "default": "desc"
+    },
+    "row_limit": {
+      "type": "number",
+      "default": 25
+    },
+    "show_comparison": {
+      "type": "boolean",
+      "default": true
+    },
+    "show_sparkline": {
+      "type": "boolean",
+      "default": true
+    },
+    "col_span": {
+      "type": "number",
+      "enum": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "default": 2
+    },
+    "row_height": {
+      "type": "string",
+      "enum": [
+        "compact",
+        "default",
+        "tall"
+      ],
+      "default": "default"
+    },
+    "conditional_formatting": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    },
+    "position": {
+      "type": "number",
+      "default": 0
+    },
+    "filters": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "type"
+  ]
+}
