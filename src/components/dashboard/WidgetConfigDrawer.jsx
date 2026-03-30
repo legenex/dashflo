@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { X, Plus, Trash2, Check, ChevronDown } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+
 
 const DIMENSIONS = ['date','Buyer','Supplier','State','UTM Source','Accident SOL','Treatment_Time','Phone Verification','Lead Type','Vertical','Feedback','Source'];
 
@@ -45,21 +45,29 @@ function DataSourceSelector({ cfg, update }) {
 const CF_OPS = ['>','<','=','!=','>=','<='];
 const CF_COLORS = ['green','red','amber','blue','gray'];
 
-function useAutoSave(widget, allMetrics, toast) {
-  const save = async (updated) => {
+function useAutoSave(widget) {
+  const timerRef = React.useRef(null);
+
+  const save = React.useCallback((updated) => {
     if (!widget?.id) return;
-    await base44.entities.DashboardWidget.update(widget.id, updated);
-    toast({ description: '✓ Saved', duration: 1200 });
-  };
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      try {
+        await base44.entities.DashboardWidget.update(widget.id, updated);
+      } catch (e) {
+        console.error('Widget save failed:', e);
+      }
+    }, 600);
+  }, [widget?.id]);
+
   return save;
 }
 
 export default function WidgetConfigDrawer({ open, onClose, widget, allMetrics, onUpdate }) {
-  const { toast } = useToast();
   const [cfg, setCfg] = useState({});
   useEffect(() => { if (widget) setCfg({ ...widget }); }, [widget]);
 
-  const save = useAutoSave(widget, allMetrics, toast);
+  const save = useAutoSave(widget);
 
   const update = (key, value) => {
     const updated = { ...cfg, [key]: value };
