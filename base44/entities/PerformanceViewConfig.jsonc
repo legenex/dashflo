@@ -1,0 +1,29 @@
+{
+  "name": "PerformanceViewConfig",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "kpi_metric_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "table_column_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "owner_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
