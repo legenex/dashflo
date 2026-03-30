@@ -33,14 +33,14 @@ export function computeRowValues(row, metricDefs) {
 export function aggregateRows(rows, metricDefs) {
   if (!rows || rows.length === 0) return {};
   const sums = {};
-  const counts = {};
   metricDefs.filter(m => m.aggregation !== 'FORMULA' && m.aggregation !== 'RATIO').forEach(m => {
-    const field = m.source_field || m.field_id;
+    const field = m.field_id;
+    const fallbackField = m.source_field || m.field_id;
     if (m.aggregation === 'AVG') {
-      const vals = rows.map(r => Number(r[field])).filter(v => isFinite(v) && v !== 0);
+      const vals = rows.map(r => Number(r[field] ?? r[fallbackField])).filter(v => isFinite(v) && v !== 0);
       sums[m.field_id] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
     } else {
-      sums[m.field_id] = rows.reduce((s, r) => s + (isFinite(Number(r[field])) ? Number(r[field]) : 0), 0);
+      sums[m.field_id] = rows.reduce((s, r) => s + (isFinite(Number(r[field] ?? r[fallbackField])) ? Number(r[field] ?? r[fallbackField]) : 0), 0);
     }
   });
   metricDefs.filter(m => m.aggregation === 'FORMULA' || m.aggregation === 'RATIO').forEach(m => {
@@ -69,12 +69,22 @@ export function computeDelta(current, prior) {
 export function buildAggregationsFromMetrics(metrics) {
   return metrics
     .filter(m => m.source_field && m.aggregation !== 'FORMULA' && m.aggregation !== 'RATIO')
-    .map(m => ({
-      field: m.source_field,
-      function: m.aggregation === 'COUNT_DISTINCT' ? 'count_distinct' : m.aggregation.toLowerCase(),
-      alias: m.source_field,
-      visible: true,
-    }));
+    .map(m => {
+      const fn = m.aggregation === 'COUNT_DISTINCT' ? 'count_distinct'
+               : m.aggregation === 'COUNT_IF' ? 'count_if'
+               : m.aggregation.toLowerCase();
+      const agg = {
+        field: m.source_field,
+        function: fn,
+        alias: m.field_id,
+        visible: true,
+      };
+      if (fn === 'count_if' && m.filter_field && m.filter_value) {
+        agg.field = m.filter_field;
+        agg.value = m.filter_value;
+      }
+      return agg;
+    });
 }
 
 export function priorRange(dateRange) {

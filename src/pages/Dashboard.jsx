@@ -23,25 +23,14 @@ import { buildAggregationsFromMetrics, priorRange } from "../utils/metricUtils";
 
 // ─── System metric seeds ─────────────────────────────────────────────────────
 const SYSTEM_METRICS = [
-  { name:"Total Leads",  field_id:"total_leads",  source_field:"Total",        aggregation:"SUM",     format:"integer",  tier:"system", is_active:true },
-  { name:"Sold",         field_id:"sold",          source_field:"Sold",         aggregation:"SUM",     format:"integer",  tier:"system", is_active:true },
-  { name:"Unsold",       field_id:"unsold",        source_field:"Unsold",       aggregation:"SUM",     format:"integer",  tier:"system", is_active:true },
-  { name:"Returns",      field_id:"returns",       source_field:"Returns",      aggregation:"SUM",     format:"integer",  tier:"system", is_active:true },
-  { name:"DQ",           field_id:"dq",            source_field:"DQ",           aggregation:"SUM",     format:"integer",  tier:"system", is_active:true },
-  { name:"Fakes",        field_id:"fakes",         source_field:"Fakes",        aggregation:"SUM",     format:"integer",  tier:"system", is_active:true },
-  { name:"Cvrt",         field_id:"cvrt",          source_field:"Cvrt",         aggregation:"SUM",     format:"integer",  tier:"system", is_active:true },
-  { name:"Revenue",      field_id:"revenue",       source_field:"Revenue",      aggregation:"SUM",     format:"currency", tier:"system", is_active:true },
-  { name:"Net Revenue",  field_id:"net_revenue",   source_field:"Net Revenue",  aggregation:"SUM",     format:"currency", tier:"system", is_active:true },
-  { name:"Cost",         field_id:"cost",          source_field:"Cost",         aggregation:"SUM",     format:"currency", tier:"system", is_active:true },
-  { name:"CPL",          field_id:"cpl",           source_field:"CPL",          aggregation:"AVG",     format:"currency", tier:"system", is_active:true },
-  { name:"IPL",          field_id:"ipl",           source_field:"IPL",          aggregation:"AVG",     format:"currency", tier:"system", is_active:true },
-  { name:"Profit",       field_id:"profit",        source_field:"Profit",       aggregation:"SUM",     format:"currency", tier:"system", is_active:true },
-  { name:"Net Profit",   field_id:"net_profit",    source_field:"Net Profit",   aggregation:"SUM",     format:"currency", tier:"system", is_active:true },
-  { name:"GP Margin",    field_id:"gp_margin",     formula:"({profit} / Math.max({revenue},1))*100",   aggregation:"FORMULA", format:"percent",  tier:"system", is_active:true },
-  { name:"Conv Rate",    field_id:"conv_rate",     formula:"({sold} / Math.max({total_leads},1))*100", aggregation:"FORMULA", format:"percent",  tier:"system", is_active:true },
-  { name:"Return Rate",  field_id:"return_rate",   formula:"({returns} / Math.max({sold},1))*100",     aggregation:"FORMULA", format:"percent",  tier:"system", is_active:true },
-  { name:"Sold Rate",    field_id:"sold_rate",     formula:"({sold} / Math.max({total_leads},1))*100", aggregation:"FORMULA", format:"percent",  tier:"system", is_active:true },
-  { name:"Return %",     field_id:"return_pct",    formula:"({returns} / Math.max({total_leads},1))*100", aggregation:"FORMULA", format:"percent", tier:"system", is_active:true },
+  { name:"Sold Rate",    field_id:"sold_rate",    aggregation:"FORMULA", format:"percent",  tier:"system", is_active:true,
+    formula:"({sold} / Math.max({total_leads},1))*100" },
+  { name:"Return Rate",  field_id:"return_rate",  aggregation:"FORMULA", format:"percent",  tier:"system", is_active:true,
+    formula:"({returns} / Math.max({sold},1))*100" },
+  { name:"GP Margin",    field_id:"gp_margin",    aggregation:"FORMULA", format:"percent",  tier:"system", is_active:true,
+    formula:"({profit} / Math.max({revenue},1))*100" },
+  { name:"Conv Rate",    field_id:"conv_rate",    aggregation:"FORMULA", format:"percent",  tier:"system", is_active:true,
+    formula:"({sold} / Math.max({total_leads},1))*100" },
 ];
 
 const DATE_PRESETS = [
@@ -116,13 +105,13 @@ export default function Dashboard() {
   // ─── Seed system metrics (once) ────────────────────────────────────────────
   useEffect(() => {
     const seed = async () => {
-      if (localStorage.getItem('sys_metrics_seeded_v3')) return;
+      if (localStorage.getItem('sys_metrics_seeded_v6')) return;
       const existing = await base44.entities.CustomMetric.filter({ tier: 'system' });
       if (existing.length === 0) {
         await base44.entities.CustomMetric.bulkCreate(SYSTEM_METRICS);
         queryClient.invalidateQueries(['custom-metrics']);
       }
-      localStorage.setItem('sys_metrics_seeded_v3', '1');
+      localStorage.setItem('sys_metrics_seeded_v6', '1');
     };
     seed().catch(console.error);
   }, []);

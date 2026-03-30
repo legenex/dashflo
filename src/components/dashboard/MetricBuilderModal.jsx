@@ -3,9 +3,9 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { X, Save } from "lucide-react";
+import { X, Save, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatValue } from "../../utils/metricUtils";
 
 const AGG_OPTIONS = ['SUM','AVG','COUNT','COUNT_DISTINCT','RATIO','FORMULA'];
@@ -35,14 +35,14 @@ function formulaToEnglish(formula, allMetrics) {
 }
 
 export default function MetricBuilderModal({ metric, allMetrics, onClose }) {
-  const [form, setForm] = useState({ name: '', field_id: '', aggregation: 'SUM', format: 'number', formula: '', description: '', tier: 'custom', is_active: true });
+  const [form, setForm] = useState({ name: '', field_id: '', source_field: '', aggregation: 'SUM', format: 'number', formula: '', filter_field: '', filter_value: '', description: '', tier: 'custom', is_active: true });
   const [saving, setSaving] = useState(false);
   const [fieldIdTouched, setFieldIdTouched] = useState(false);
   const formulaRef = useRef(null);
 
   useEffect(() => {
     if (metric) {
-      setForm({ name: metric.name||'', field_id: metric.field_id||'', aggregation: metric.aggregation||'SUM', format: metric.format||'number', formula: metric.formula||'', description: metric.description||'', tier: metric.tier||'custom', is_active: metric.is_active!==false });
+      setForm({ name: metric.name||'', field_id: metric.field_id||'', source_field: metric.source_field||'', aggregation: metric.aggregation||'SUM', format: metric.format||'number', formula: metric.formula||'', filter_field: metric.filter_field||'', filter_value: metric.filter_value||'', description: metric.description||'', tier: metric.tier||'custom', is_active: metric.is_active!==false });
       setFieldIdTouched(true);
     }
   }, [metric]);
@@ -65,7 +65,8 @@ export default function MetricBuilderModal({ metric, allMetrics, onClose }) {
   const fieldIdExists = allMetrics.find(m => m.field_id === form.field_id && (!metric || m.field_id !== metric.field_id));
   const fieldIdValid = /^[a-z][a-z0-9_]*$/.test(form.field_id);
   const formulaError = isFormula ? validateFormula(form.formula, allMetrics) : null;
-  const canSave = form.name && form.field_id && fieldIdValid && !fieldIdExists && (!isFormula || (form.formula && !formulaError));
+  const canSave = form.name && form.field_id && fieldIdValid && !fieldIdExists &&
+    (isFormula ? (form.formula && !formulaError) : !!form.source_field);
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -73,6 +74,9 @@ export default function MetricBuilderModal({ metric, allMetrics, onClose }) {
     try {
       const data = { ...form };
       if (!isFormula) delete data.formula;
+      if (data.aggregation === 'COUNT' && data.filter_field && data.filter_value) {
+        data.aggregation = 'COUNT_IF';
+      }
       if (metric?.id && metric.tier !== 'system') {
         await base44.entities.CustomMetric.update(metric.id, data);
       } else if (!metric) {
@@ -111,26 +115,64 @@ export default function MetricBuilderModal({ metric, allMetrics, onClose }) {
                   {fieldIdExists ? '✗ ID already taken' : fieldIdValid && form.field_id ? '✓ Valid unique ID' : 'lowercase letters, numbers, underscore'}
                 </p>
               </div>
+              {!isFormula && (
+                <div>
+                  <Label className="text-white text-xs">Data Field Name *</Label>
+                  <Input
+                    value={form.source_field}
+                    onChange={e => setForm(f => ({ ...f, source_field: e.target.value }))}
+                    placeholder="e.g. Revenue, Status, Profit, Net_Revenue"
+                    className="glass-card border-white/10 text-white mt-1"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">Exact column name from your data source</p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-white text-xs">Aggregation</Label>
-                  <Select value={form.aggregation} onValueChange={v => setForm(f => ({ ...f, aggregation: v }))}>
-                    <SelectTrigger className="glass-card border-white/10 text-white mt-1 h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent className="glass-card border-white/10">
-                      {AGG_OPTIONS.map(o => <SelectItem key={o} value={o} className="text-white">{o}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full glass-card border-white/10 text-white mt-1 h-9 justify-between">
+                        {form.aggregation || 'Select'}<ChevronDown className="w-4 h-4 ml-2 opacity-50" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="glass-card border-white/10 w-[--radix-dropdown-menu-trigger-width]" style={{zIndex:200}}>
+                      {AGG_OPTIONS.map(o => (
+                        <DropdownMenuItem key={o} onSelect={() => setForm(f => ({ ...f, aggregation: o }))}
+                          className={`text-white cursor-pointer ${form.aggregation === o ? 'bg-[#00d4ff]/20' : 'hover:bg-white/10'}`}>{o}</DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 <div>
                   <Label className="text-white text-xs">Format</Label>
-                  <Select value={form.format} onValueChange={v => setForm(f => ({ ...f, format: v }))}>
-                    <SelectTrigger className="glass-card border-white/10 text-white mt-1 h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent className="glass-card border-white/10">
-                      {FMT_OPTIONS.map(o => <SelectItem key={o} value={o} className="text-white capitalize">{o}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full glass-card border-white/10 text-white mt-1 h-9 justify-between capitalize">
+                        {form.format || 'Select'}<ChevronDown className="w-4 h-4 ml-2 opacity-50" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="glass-card border-white/10 w-[--radix-dropdown-menu-trigger-width]" style={{zIndex:200}}>
+                      {FMT_OPTIONS.map(o => (
+                        <DropdownMenuItem key={o} onSelect={() => setForm(f => ({ ...f, format: o }))}
+                          className={`text-white cursor-pointer capitalize ${form.format === o ? 'bg-[#00d4ff]/20' : 'hover:bg-white/10'}`}>{o}</DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
+              {form.aggregation === 'COUNT' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-white text-xs">Filter Field (optional)</Label>
+                    <Input value={form.filter_field} onChange={e => setForm(f => ({ ...f, filter_field: e.target.value }))} placeholder="e.g. Status" className="glass-card border-white/10 text-white mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-white text-xs">Filter Value (optional)</Label>
+                    <Input value={form.filter_value} onChange={e => setForm(f => ({ ...f, filter_value: e.target.value }))} placeholder="e.g. Sold" className="glass-card border-white/10 text-white mt-1" />
+                  </div>
+                </div>
+              )}
 
               {isFormula && (
                 <div>
@@ -168,12 +210,19 @@ export default function MetricBuilderModal({ metric, allMetrics, onClose }) {
 
               <div>
                 <Label className="text-white text-xs">Tier</Label>
-                <Select value={form.tier} onValueChange={v => setForm(f => ({ ...f, tier: v }))}>
-                  <SelectTrigger className="glass-card border-white/10 text-white mt-1 h-9"><SelectValue /></SelectTrigger>
-                  <SelectContent className="glass-card border-white/10">
-                    {TIER_OPTIONS.map(o => <SelectItem key={o} value={o} className="text-white capitalize">{o}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full glass-card border-white/10 text-white mt-1 h-9 justify-between capitalize">
+                      {form.tier || 'Select'}<ChevronDown className="w-4 h-4 ml-2 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="glass-card border-white/10 w-[--radix-dropdown-menu-trigger-width]" style={{zIndex:200}}>
+                    {TIER_OPTIONS.map(o => (
+                      <DropdownMenuItem key={o} onSelect={() => setForm(f => ({ ...f, tier: o }))}
+                        className={`text-white cursor-pointer capitalize ${form.tier === o ? 'bg-[#00d4ff]/20' : 'hover:bg-white/10'}`}>{o}</DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
@@ -196,6 +245,7 @@ export default function MetricBuilderModal({ metric, allMetrics, onClose }) {
                 {!form.name && <p className="text-[10px] text-yellow-400">⚠ Name required</p>}
                 {form.field_id && fieldIdExists && <p className="text-[10px] text-red-400">✗ Field ID taken</p>}
                 {isFormula && !form.formula && <p className="text-[10px] text-yellow-400">⚠ Formula required</p>}
+                {!isFormula && !form.source_field && <p className="text-[10px] text-yellow-400">⚠ Data field name required</p>}
                 {formulaError && <p className="text-[10px] text-red-400">✗ {formulaError}</p>}
                 {canSave && <p className="text-[10px] text-emerald-400">✓ Ready to save</p>}
               </div>

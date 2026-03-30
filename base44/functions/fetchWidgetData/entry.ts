@@ -276,6 +276,14 @@ Deno.serve(async (req) => {
       const fnUp = (fn || '').toUpperCase();
       const vals = rows.map(r => r[field] ?? r[fieldLower]).filter(v => v != null);
       const nums = vals.map(Number).filter(v => !isNaN(v));
+      if (fnUp === 'COUNT_IF') {
+        const filterVal = String(agg.value || '').toLowerCase();
+        const count = rows.filter(r => {
+          const v = r[field] ?? r[fieldLower];
+          return String(v ?? '').toLowerCase() === filterVal;
+        }).length;
+        return [col, count];
+      }
       if (fnUp === 'COUNT') return [col, rows.length];
       if (fnUp === 'COUNT_DISTINCT') return [col, new Set(vals.map(String)).size];
       if (fnUp === 'SUM') return [col, nums.reduce((s, v) => s + v, 0)];
