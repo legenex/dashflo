@@ -35,7 +35,6 @@ import ThemeSettings from './pages/ThemeSettings';
 import UserManagement from './pages/UserManagement';
 import Verticals from './pages/Verticals';
 import WidgetBuilder from './pages/WidgetBuilder';
-import PerformanceOverview from './pages/PerformanceOverview';
 import __Layout from './Layout.jsx';
 
 
@@ -77,7 +76,6 @@ export const PAGES = {
     "UserManagement": UserManagement,
     "Verticals": Verticals,
     "WidgetBuilder": WidgetBuilder,
-    "PerformanceOverview": PerformanceOverview,
 }
 
 export const pagesConfig = {

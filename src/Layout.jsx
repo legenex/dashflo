@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -8,7 +9,6 @@ import {
   Users,
   DollarSign,
   BarChart3,
-  BarChart2,
   Settings,
   ChevronDown,
   Search,
@@ -41,7 +41,6 @@ const navigationSections = [
     icon: LayoutDashboard,
     items: [
       { name: "Overview", path: "Dashboard" },
-      { name: "Performance", path: "PerformanceOverview" },
       { name: "Buyer Performance", path: "BuyerPerformance" },
       { name: "Supplier Performance", path: "SupplierPerformance" },
       { name: "Ad Metrics", path: "AdMetrics" },
