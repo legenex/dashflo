@@ -699,7 +699,7 @@ Deno.serve(async (req) => {
           console.log(`    Extracted ${pageRecords.length} records from response`);
           
           if (typeof apiData.hasMore === 'undefined') {
-            hasMore = pageRecords.length >= 1000;
+            hasMore = pageRecords.length >= (syncConfig.page_size || 1000);
             console.log(`    Inferred hasMore: ${hasMore}`);
           }
           
@@ -724,8 +724,9 @@ Deno.serve(async (req) => {
             hasMore = false;
             break;
           }
-          
-          offset += 1000;
+
+          const actualPageSize = pageRecords.length;
+          offset += actualPageSize;
         }
         
         console.log(`\n=== PAGINATION COMPLETE ===`);
