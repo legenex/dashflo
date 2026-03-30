@@ -37,13 +37,13 @@ export default function EditCloudRunSync() {
     api_url: '',
     api_key: '',
     api_method: 'GET',
-    response_format: 'json_array',
-    pagination_type: 'none',
+    response_format: 'paginated',
+    pagination_type: 'offset',
     page_size: '1000',
     frequency: 'hourly',
     api_headers: '',
     api_payload: '',
-    response_path: '',
+    response_path: 'data',
     detected_schema: null
   });
   const [testing, setTesting] = useState(false);
@@ -345,7 +345,7 @@ export default function EditCloudRunSync() {
                 placeholder="e.g., data.results or leave empty for root array"
                 className="glass-card border-white/10 text-white"
               />
-              <p className="text-xs text-gray-400 mt-1">If response is nested, specify the path to the data array (e.g., "data" or "response.items")</p>
+              <p className="text-xs text-gray-400 mt-1">For the Cloud Run API, use 'data' — the API returns {`{ data: [], count, hasMore, offset }`}</p>
             </div>
           </CardContent>
         </Card>
