@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
 
     const url = new URL(api_url);
     if (!url.searchParams.has('start_date')) url.searchParams.set('start_date', '2024-01-01');
-    if (!url.searchParams.has('end_date'))   url.searchParams.set('end_date',   '2024-01-07');
+    if (!url.searchParams.has('end_date'))   url.searchParams.set('end_date',   '2024-01-31');
     if (!url.searchParams.has('offset'))     url.searchParams.set('offset',     '0');
 
     const headers = { 'Content-Type': 'application/json' };
