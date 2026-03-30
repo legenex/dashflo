@@ -21,6 +21,24 @@ const delta = (c, p) => (!p || p === 0) ? null : ((c - p) / Math.abs(p)) * 100;
 
 const SPARK_COLORS = ['#00d4ff','#a855f7','#f97316','#eab308','#22c55e','#ec4899','#3b82f6','#ef4444','#14b8a6','#f43f5e'];
 
+const DEFAULT_AGGS = [
+  { function: 'sum', field: 'Revenue',     alias: 'Revenue' },
+  { function: 'sum', field: 'Net_Revenue', alias: 'Net_Revenue' },
+  { function: 'sum', field: 'Payout',      alias: 'Cost' },
+  { function: 'avg', field: 'CPL',         alias: 'CPL' },
+  { function: 'sum', field: 'Profit',      alias: 'Profit' },
+  { function: 'sum', field: 'Net_Profit',  alias: 'Net_Profit' },
+];
+const DEFAULT_KPI_FIELDS = ['Revenue', 'Net_Revenue', 'Cost', 'CPL', 'Profit', 'Net_Profit'];
+const DEFAULT_KPI_LABELS = {
+  Revenue:     { name: 'Revenue',     format: 'currency' },
+  Net_Revenue: { name: 'Net Revenue', format: 'currency' },
+  Cost:        { name: 'Cost',        format: 'currency' },
+  CPL:         { name: 'CPL',         format: 'currency' },
+  Profit:      { name: 'Profit',      format: 'currency' },
+  Net_Profit:  { name: 'Net Profit',  format: 'currency' },
+};
+
 // ─── KPI Spark Card ───────────────────────────────────────────────────────────
 function KPISparkCard({ metric, value, prevValue, sparkData, color, editMode, onRemove }) {
   const d = delta(value, prevValue);
@@ -183,12 +201,19 @@ export default function PerformanceOverview() {
 
   const activeMetrics = useMemo(() => dbMetrics.filter(m => allActiveIds.includes(m.field_id)), [dbMetrics, allActiveIds]);
 
-  const aggregations = useMemo(() =>
-    activeMetrics
+  const aggregations = useMemo(() => {
+    const fromMetrics = activeMetrics
       .filter(m => m.source_field && m.aggregation !== 'FORMULA' && m.aggregation !== 'RATIO')
-      .map(m => ({ field: m.source_field, function: m.aggregation?.toLowerCase() || 'sum', alias: m.field_id })),
-    [activeMetrics]
-  );
+      .map(m => ({
+        field: m.aggregation === 'COUNT_IF' && m.filter_field ? m.filter_field : m.source_field,
+        function: m.aggregation === 'COUNT_IF' ? 'count_if'
+                : m.aggregation === 'COUNT_DISTINCT' ? 'count_distinct'
+                : (m.aggregation || 'sum').toLowerCase(),
+        alias: m.field_id,
+        ...(m.aggregation === 'COUNT_IF' && m.filter_value ? { value: m.filter_value } : {}),
+      }));
+    return fromMetrics.length > 0 ? fromMetrics : DEFAULT_AGGS;
+  }, [activeMetrics]);
 
   const fetchDaily = async (range) => {
     if (!dataSource || !aggregations.length) return [];
@@ -218,19 +243,34 @@ export default function PerformanceOverview() {
   const totals = useMemo(() => {
     const t = {};
     activeMetrics.forEach(m => { t[m.field_id] = m.aggregation === 'AVG' ? avgField(dailyData, m.field_id) : sumField(dailyData, m.field_id); });
+    DEFAULT_KPI_FIELDS.forEach(field => { if (!(field in t)) t[field] = field === 'CPL' ? avgField(dailyData, field) : sumField(dailyData, field); });
     return t;
   }, [dailyData, activeMetrics]);
 
   const priorTotals = useMemo(() => {
     const t = {};
     activeMetrics.forEach(m => { t[m.field_id] = m.aggregation === 'AVG' ? avgField(priorData, m.field_id) : sumField(priorData, m.field_id); });
+    DEFAULT_KPI_FIELDS.forEach(field => { if (!(field in t)) t[field] = field === 'CPL' ? avgField(priorData, field) : sumField(priorData, field); });
     return t;
   }, [priorData, activeMetrics]);
 
-  const kpiMetrics = useMemo(() =>
-    currentKpiIds.map((id, i) => ({ metric: dbMetrics.find(m => m.field_id === id), color: SPARK_COLORS[i % SPARK_COLORS.length] })).filter(x => x.metric),
-    [currentKpiIds, dbMetrics]
-  );
+  const kpiMetrics = useMemo(() => {
+    const currentIds = editMode ? draftKpis : activeKpiIds;
+    if (currentIds.length > 0 && dbMetrics.length > 0) {
+      return currentIds
+        .map((id, i) => {
+          const metric = dbMetrics.find(m => m.field_id === id);
+          if (!metric) return null;
+          return { metric, color: SPARK_COLORS[i % SPARK_COLORS.length] };
+        })
+        .filter(Boolean);
+    }
+    return DEFAULT_KPI_FIELDS.map((field, i) => ({
+      metric: { field_id: field, name: DEFAULT_KPI_LABELS[field].name, format: DEFAULT_KPI_LABELS[field].format },
+      color: SPARK_COLORS[i % SPARK_COLORS.length],
+      isFallback: true,
+    }));
+  }, [editMode, draftKpis, activeKpiIds, dbMetrics]);
   const tableMetrics = useMemo(() =>
     currentColIds.map(id => dbMetrics.find(m => m.field_id === id)).filter(Boolean),
     [currentColIds, dbMetrics]
@@ -291,9 +331,9 @@ export default function PerformanceOverview() {
           No data source configured. Go to Data Sync to connect your Cloud Run API.
         </div>
       )}
-      {dbMetrics.length === 0 && (
-        <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4 text-blue-400 text-sm">
-          No metrics defined yet. Go to <strong>Metrics Library</strong> to create metrics, then click Edit Layout to add them here.
+      {editMode && dbMetrics.length === 0 && (
+        <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 text-blue-400 text-xs">
+          💡 Build metrics in the <strong>Metrics Library</strong> first, then add them here. The page works with default fields in the meantime.
         </div>
       )}
 
