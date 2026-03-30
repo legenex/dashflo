@@ -135,10 +135,10 @@ Deno.serve(async (req) => {
         });
       }
       
-      const cleanFormula = evalFormula.replace(/[^0-9+\-*/(). ]/g, '');
+      const cleanFormula = evalFormula.replace(/[^0-9a-zA-Z+\-*/(). _]/g, '');
       
       if (cleanFormula.trim() === '') {
-        return 0;
+        return null;
       }
       
       try {
