@@ -88,6 +88,7 @@ export default function WidgetCanvas({
   const priorTotals   = React.useMemo(() => aggregateRows(priorDailyData,   metrics), [priorDailyData,   metrics]);
 
   function renderWidgetContent(widget) {
+    const type = widget.type;
     const heightPx = ROW_HEIGHT_PX[widget.row_height || 'default'];
     const heightStyle = { minHeight: `${heightPx}px` };
 
