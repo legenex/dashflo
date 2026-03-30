@@ -4,10 +4,16 @@ Deno.serve(async (req) => {
 
     if (!api_url) return Response.json({ success: false, error: 'api_url is required' });
 
+    const now = new Date();
+    const end_date = now.toISOString().slice(0, 10);
+    const start = new Date(now);
+    start.setDate(start.getDate() - 30);
+    const start_date = start.toISOString().slice(0, 10);
+
     const url = new URL(api_url);
-    if (!url.searchParams.has('start_date')) url.searchParams.set('start_date', '2024-01-01');
-    if (!url.searchParams.has('end_date'))   url.searchParams.set('end_date',   '2024-01-31');
-    if (!url.searchParams.has('offset'))     url.searchParams.set('offset',     '0');
+    url.searchParams.set('start_date', start_date);
+    url.searchParams.set('end_date', end_date);
+    url.searchParams.set('offset', '0');
 
     const headers = { 'Content-Type': 'application/json' };
     if (api_key) headers['Authorization'] = `Bearer ${api_key}`;
@@ -27,14 +33,22 @@ Deno.serve(async (req) => {
     }
 
     const json = await res.json();
-    const records = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : [json]);
+
+    let data;
+    if (Array.isArray(json?.data)) {
+      data = json.data;
+    } else if (Array.isArray(json)) {
+      data = json;
+    } else {
+      return Response.json({ success: false, error: 'Could not find data array in response' });
+    }
 
     return Response.json({
       success: true,
       status,
-      is_array: Array.isArray(json) || Array.isArray(json?.data),
-      record_count: records.length,
-      sample_data: records.slice(0, 2),
+      is_array: true,
+      record_count: data.length,
+      sample_data: data.slice(0, 2),
     });
 
   } catch (error) {

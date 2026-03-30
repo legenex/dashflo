@@ -1,12 +1,7 @@
 function detectType(value) {
-  if (value === null || value === undefined) return 'string';
   if (typeof value === 'boolean') return 'boolean';
   if (typeof value === 'number') return 'number';
-  if (typeof value === 'string') {
-    if (/^\d{4}-\d{2}-\d{2}(T[\d:.Z+-]*)?$/.test(value)) return 'date';
-    if (value.trim() !== '' && !isNaN(Number(value))) return 'number';
-    return 'string';
-  }
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return 'date';
   return 'string';
 }
 
@@ -21,10 +16,16 @@ Deno.serve(async (req) => {
 
     if (!api_url) return Response.json({ success: false, error: 'api_url is required' });
 
+    const now = new Date();
+    const end_date = now.toISOString().slice(0, 10);
+    const start = new Date(now);
+    start.setDate(start.getDate() - 30);
+    const start_date = start.toISOString().slice(0, 10);
+
     const url = new URL(api_url);
-    if (!url.searchParams.has('start_date')) url.searchParams.set('start_date', '2024-01-01');
-    if (!url.searchParams.has('end_date'))   url.searchParams.set('end_date',   '2024-01-31');
-    if (!url.searchParams.has('offset'))     url.searchParams.set('offset',     '0');
+    url.searchParams.set('start_date', start_date);
+    url.searchParams.set('end_date', end_date);
+    url.searchParams.set('offset', '0');
 
     const headers = { 'Content-Type': 'application/json' };
     if (api_key) headers['Authorization'] = `Bearer ${api_key}`;
@@ -43,18 +44,22 @@ Deno.serve(async (req) => {
 
     const json = await res.json();
 
-    // Extract records using response_path, then fallback to .data, then root
-    const effectivePath = response_path && response_path.trim() !== '' ? response_path : 'data';
-    let records = getNestedValue(json, effectivePath);
-    if (!Array.isArray(records)) {
-      records = Array.isArray(json) ? json : (json ? [json] : []);
+    let data;
+    if (response_path && response_path.trim() !== '') {
+      const nested = getNestedValue(json, response_path);
+      data = Array.isArray(nested) ? nested : null;
+    }
+    if (!data) {
+      if (Array.isArray(json?.data)) data = json.data;
+      else if (Array.isArray(json)) data = json;
+      else return Response.json({ success: false, error: 'Could not find data array in response' });
     }
 
-    if (records.length === 0) {
-      return Response.json({ success: false, error: 'No records found to analyze. Try a wider date range.' });
+    if (data.length === 0) {
+      return Response.json({ success: false, error: 'No records found to analyze.' });
     }
 
-    const sample = records[0];
+    const sample = data[0];
     const fields = Object.keys(sample).map(name => ({
       name,
       type: detectType(sample[name]),
@@ -64,7 +69,7 @@ Deno.serve(async (req) => {
       success: true,
       fields,
       total_fields: fields.length,
-      records_analyzed: records.length,
+      records_analyzed: data.length,
       sample_record: sample,
     });
 
