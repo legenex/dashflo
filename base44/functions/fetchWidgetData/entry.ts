@@ -31,7 +31,6 @@ Deno.serve(async (req) => {
     const evaluateCondition = (row, condition, aggregations = {}, calculatedFields = {}) => {
       const { field, operator, value, value_type } = condition;
       
-      // Look for the field in row, aggregations, or previously calculated fields
       let fieldValue = row[field];
       if (fieldValue === undefined && aggregations[field] !== undefined) {
         fieldValue = aggregations[field];
@@ -44,10 +43,8 @@ Deno.serve(async (req) => {
         return false;
       }
       
-      // Determine compareValue - either static or from another field
       let compareValue;
       if (value_type === 'field') {
-        // Value is a field reference
         compareValue = row[value];
         if (compareValue === undefined && aggregations[value] !== undefined) {
           compareValue = aggregations[value];
@@ -59,7 +56,6 @@ Deno.serve(async (req) => {
           return false;
         }
       } else {
-        // Value is a static value
         compareValue = value;
       }
       
@@ -89,18 +85,15 @@ Deno.serve(async (req) => {
         return 0;
       }
       
-      // Check if it's just a single field reference like "{Net Profit}"
       const singleFieldMatch = formulaString.match(/^\{([^}]+)\}$/);
       if (singleFieldMatch) {
         const fieldName = singleFieldMatch[1];
         
-        // Look for value in rowData, then in existingMetrics
         let value = rowData[fieldName];
         if (value === undefined && existingMetrics[fieldName] !== undefined) {
           value = existingMetrics[fieldName];
         }
         
-        // Case-insensitive fallback
         if (value === undefined) {
           const allKeys = Object.keys(rowData).concat(Object.keys(existingMetrics));
           const matchedKey = allKeys.find(k => k.toLowerCase() === fieldName.toLowerCase());
@@ -109,7 +102,6 @@ Deno.serve(async (req) => {
           }
         }
         
-        // Return the value directly (don't convert to number if it's not numeric)
         if (value !== undefined && value !== null) {
           return value;
         }
@@ -125,13 +117,11 @@ Deno.serve(async (req) => {
         fieldMatches.forEach((match) => {
           const referencedField = match.slice(1, -1);
           
-          // Look for value in rowData, then in existingMetrics
           let value = rowData[referencedField];
           if (value === undefined && existingMetrics[referencedField] !== undefined) {
             value = existingMetrics[referencedField];
           }
           
-          // Case-insensitive fallback
           if (value === undefined) {
             const allKeys = Object.keys(rowData).concat(Object.keys(existingMetrics));
             const matchedKey = allKeys.find(k => k.toLowerCase() === referencedField.toLowerCase());
@@ -145,7 +135,6 @@ Deno.serve(async (req) => {
         });
       }
       
-      // Clean formula to allow only numbers and operators
       const cleanFormula = evalFormula.replace(/[^0-9+\-*/(). ]/g, '');
       
       if (cleanFormula.trim() === '') {
@@ -168,7 +157,6 @@ Deno.serve(async (req) => {
     let requiredMetricIds = new Set();
     let orderedMetricIds = [];
 
-    // First pass: Load explicitly requested metrics IN ORDER
     if (query_config?.metric_ids && query_config.metric_ids.length > 0) {
       query_config.metric_ids.forEach(id => {
         const metric = allMetricDefinitions.find(m => m.id === id);
@@ -189,7 +177,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Second pass: For calculated fields, find their dependencies
     const explicitlyRequestedCalculatedFields = libraryMetrics.filter(m => 
       m.type === 'calculated_field' && orderedMetricIds.includes(m.id)
     );
@@ -200,7 +187,6 @@ Deno.serve(async (req) => {
       explicitlyRequestedCalculatedFields.forEach(cf => {
         console.log(`\nCalculated Field: ${cf.name}`);
         
-        // Handle dependencies for both 'simple' and 'case_when' formula types
         if (cf.definition.formula_type === 'case_when') {
           console.log(`Formula Type: CASE WHEN`);
           const caseStatements = cf.definition.case_statements || [];
@@ -217,7 +203,6 @@ Deno.serve(async (req) => {
                 libraryMetrics.push(dependencyMetric);
               }
             }
-            // If value_type is 'field', that field is also a dependency
             if (stmt.when_condition?.value_type === 'field' && stmt.when_condition?.value) {
               const referencedName = stmt.when_condition.value;
               console.log(`  Condition 'value' dependency: "${referencedName}"`);
@@ -260,7 +245,7 @@ Deno.serve(async (req) => {
             }
           }
 
-        } else { // 'simple' formula type
+        } else {
           console.log(`Formula: ${cf.definition.formula}`);
           const fieldMatches = cf.definition.formula.match(/\{([^}]+)\}/g);
           
@@ -296,7 +281,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Sort libraryMetrics for consistent processing
     libraryMetrics.sort((a, b) => {
       const orderA = orderedMetricIds.indexOf(a.id);
       const orderB = orderedMetricIds.indexOf(b.id);
@@ -315,7 +299,6 @@ Deno.serve(async (req) => {
       }
     });
 
-    // Separate aggregations and calculated fields from library
     const libraryAggregations = libraryMetrics
       .filter(m => m.type === 'aggregation' && orderedMetricIds.includes(m.id))
       .map(m => ({
@@ -341,7 +324,6 @@ Deno.serve(async (req) => {
           _order: 9999
       }));
 
-    // Merge library metrics with local ones from query_config
     const allAggregations = [
       ...libraryAggregations,
       ...dependencyAggregations,
@@ -380,6 +362,60 @@ Deno.serve(async (req) => {
       console.log(`  ${i+1}. "${cf.name}" (Type: ${cf.formula_type || 'simple'})`);
     });
 
+    // ── BigQuery JWT helper ────────────────────────────────────────────────────
+    const getBigQueryAccessToken = async (serviceAccountJson) => {
+      let sa;
+      try {
+        sa = typeof serviceAccountJson === 'string' ? JSON.parse(serviceAccountJson) : serviceAccountJson;
+      } catch (e) {
+        throw new Error('BigQuery sync config is missing service account credentials or JSON is malformed');
+      }
+      if (!sa || !sa.private_key || !sa.client_email) {
+        throw new Error('BigQuery sync config is missing service account credentials');
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const header = { alg: 'RS256', typ: 'JWT' };
+      const claim = {
+        iss: sa.client_email,
+        scope: 'https://www.googleapis.com/auth/bigquery.readonly',
+        aud: 'https://oauth2.googleapis.com/token',
+        iat: now,
+        exp: now + 3600,
+      };
+
+      const b64u = (obj) => btoa(JSON.stringify(obj)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+      const toSign = b64u(header) + '.' + b64u(claim);
+
+      const pemBody = sa.private_key.replace(/-----[^\n]+\n?/g, '').replace(/\n/g, '');
+      const der = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
+      const cryptoKey = await crypto.subtle.importKey(
+        'pkcs8', der.buffer,
+        { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+        false, ['sign']
+      );
+
+      const sigBytes = await crypto.subtle.sign(
+        { name: 'RSASSA-PKCS1-v1_5' },
+        cryptoKey,
+        new TextEncoder().encode(toSign)
+      );
+      const sig = btoa(String.fromCharCode(...new Uint8Array(sigBytes))).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+      const jwt = toSign + '.' + sig;
+
+      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=' + jwt,
+      });
+      const tokenData = await tokenRes.json();
+      if (!tokenRes.ok || !tokenData.access_token) {
+        throw new Error('Failed to obtain BigQuery access token: ' + (tokenData.error_description || tokenData.error || JSON.stringify(tokenData)));
+      }
+      return tokenData.access_token;
+    };
+    // ──────────────────────────────────────────────────────────────────────────
+
     const allSyncConfigs = await base44.asServiceRole.entities.SyncConfiguration.list();
     
     const syncConfig = allSyncConfigs.find(s => 
@@ -398,7 +434,164 @@ Deno.serve(async (req) => {
 
     // Fetch data from source
     if (syncConfig.sync_type === 'bigquery') {
-      data = [];
+      // ── BigQuery REST API (JWT → OAuth2 → Jobs.query + pageToken) ────────────
+      const accessToken = await getBigQueryAccessToken(syncConfig.service_account_json);
+
+      const projectId = syncConfig.project_id;
+      const dataset   = syncConfig.dataset || syncConfig.dataset_id;
+      const table     = syncConfig.table_name;
+      const dateField = syncConfig.date_field || syncConfig.incremental_field || 'date';
+
+      if (!projectId || !dataset || !table) {
+        throw new Error('BigQuery sync config is incomplete: missing project_id, dataset, or table_name');
+      }
+
+      // Build WHERE clauses
+      const bqWhere = [];
+      if (date_range && date_range.start && date_range.end) {
+        bqWhere.push(dateField + " >= '" + date_range.start + "' AND " + dateField + " <= '" + date_range.end + "'");
+      }
+      if (custom_filters && custom_filters.length > 0) {
+        custom_filters.forEach(f => {
+          if (!f.field || f.value === '' || f.value === undefined) return;
+          const col = f.field;
+          const val = String(f.value).replace(/'/g, "''");
+          switch (f.operator) {
+            case 'equals':       bqWhere.push(col + " = '" + val + "'"); break;
+            case 'not_equals':   bqWhere.push(col + " != '" + val + "'"); break;
+            case 'contains':     bqWhere.push("LOWER(CAST(" + col + " AS STRING)) LIKE '%" + val.toLowerCase() + "%'"); break;
+            case 'greater_than': bqWhere.push(col + ' > ' + Number(f.value)); break;
+            case 'less_than':    bqWhere.push(col + ' < ' + Number(f.value)); break;
+            case 'in': {
+              const inVals = String(f.value).split(',').map(v => "'" + v.trim().replace(/'/g, "''") + "'").join(',');
+              bqWhere.push(col + ' IN (' + inVals + ')'); break;
+            }
+            case 'not_in': {
+              const niVals = String(f.value).split(',').map(v => "'" + v.trim().replace(/'/g, "''") + "'").join(',');
+              bqWhere.push(col + ' NOT IN (' + niVals + ')'); break;
+            }
+          }
+        });
+      }
+      const whereSQL = bqWhere.length > 0 ? 'WHERE ' + bqWhere.join(' AND ') : '';
+
+      // Build SELECT — push down group_by + aggregations to BQ when possible
+      const bqGroupField = effectiveQueryConfig && effectiveQueryConfig.group_by;
+      const bqAggs       = (effectiveQueryConfig && effectiveQueryConfig.aggregations) || [];
+      const bqLimit      = (effectiveQueryConfig && effectiveQueryConfig.limit) || 10000;
+      let bqSelect, bqGroupBy, bqOrderBy;
+
+      if (bqGroupField && bqAggs.length > 0) {
+        const aggExprs = bqAggs.map(agg => {
+          const fn    = (agg.function || 'sum').toUpperCase();
+          const field = agg.field;
+          const alias = (agg.alias || (fn + '_' + field)).replace(/`/g, '');
+          const safeAlias = '`' + alias + '`';
+          switch (fn) {
+            case 'COUNT_DISTINCT': return 'COUNT(DISTINCT ' + field + ') AS ' + safeAlias;
+            case 'COUNT': return 'COUNT(' + field + ') AS ' + safeAlias;
+            case 'SUM':   return 'SUM(' + field + ') AS ' + safeAlias;
+            case 'AVG':   return 'AVG(' + field + ') AS ' + safeAlias;
+            case 'MIN':   return 'MIN(' + field + ') AS ' + safeAlias;
+            case 'MAX':   return 'MAX(' + field + ') AS ' + safeAlias;
+            default:      return 'SUM(' + field + ') AS ' + safeAlias;
+          }
+        });
+        bqSelect  = bqGroupField + ', ' + aggExprs.join(', ');
+        bqGroupBy = 'GROUP BY ' + bqGroupField;
+        if (effectiveQueryConfig && effectiveQueryConfig.sort_by) {
+          const sf = effectiveQueryConfig.sort_by.replace(/^-/, '');
+          const sd = effectiveQueryConfig.sort_by.startsWith('-') ? 'DESC' : 'ASC';
+          bqOrderBy = 'ORDER BY `' + sf + '` ' + sd;
+        } else {
+          bqOrderBy = 'ORDER BY ' + bqGroupField + ' ASC';
+        }
+      } else {
+        let cols = '*';
+        if (effectiveQueryConfig && effectiveQueryConfig.columns && effectiveQueryConfig.columns.length > 0) {
+          cols = effectiveQueryConfig.columns.map(c => (typeof c === 'string' ? c : c.field)).join(', ');
+        }
+        bqSelect  = cols;
+        bqGroupBy = '';
+        if (effectiveQueryConfig && effectiveQueryConfig.sort_by) {
+          const sf = effectiveQueryConfig.sort_by.replace(/^-/, '');
+          const sd = effectiveQueryConfig.sort_by.startsWith('-') ? 'DESC' : 'ASC';
+          bqOrderBy = 'ORDER BY `' + sf + '` ' + sd;
+        } else {
+          bqOrderBy = '';
+        }
+      }
+
+      const bqSQL = 'SELECT ' + bqSelect + ' FROM `' + projectId + '.' + dataset + '.' + table + '` ' + whereSQL + ' ' + bqGroupBy + ' ' + bqOrderBy + ' LIMIT ' + bqLimit;
+      console.log('\n=== BIGQUERY SQL ===');
+      console.log(bqSQL);
+
+      const bqEndpoint = 'https://bigquery.googleapis.com/bigquery/v2/projects/' + projectId + '/queries';
+      const bqHeaders  = { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' };
+
+      const bqRes  = await fetch(bqEndpoint, {
+        method: 'POST',
+        headers: bqHeaders,
+        body: JSON.stringify({ query: bqSQL, useLegacySql: false, timeoutMs: 30000, maxResults: 10000 }),
+      });
+      const bqBody = await bqRes.json();
+
+      if (!bqRes.ok || bqBody.error) {
+        const bqMsg = (bqBody.error && bqBody.error.message) ? bqBody.error.message : JSON.stringify(bqBody.error || bqBody);
+        throw new Error('BigQuery query failed: ' + bqMsg);
+      }
+
+      // Schema → ordered field-name array
+      const bqSchemaFields = (bqBody.schema && bqBody.schema.fields) ? bqBody.schema.fields.map(f => f.name) : [];
+      console.log('BQ schema fields:', bqSchemaFields);
+
+      const normaliseBqRows = (rows) => {
+        if (!rows) return [];
+        return rows.map(row =>
+          Object.fromEntries(
+            (row.f || []).map((cell, i) => [bqSchemaFields[i], (cell.v === 'null' || cell.v === null) ? null : cell.v])
+          )
+        );
+      };
+
+      let allBqRows   = normaliseBqRows(bqBody.rows);
+      let bqPageToken = bqBody.pageToken;
+      const bqJobId   = bqBody.jobReference && bqBody.jobReference.jobId;
+      const bqLoc     = bqBody.jobReference && bqBody.jobReference.location;
+      let bqPageCount = 1;
+      const maxBqPages = 100;
+
+      while (bqPageToken && bqJobId && bqPageCount < maxBqPages) {
+        bqPageCount++;
+        const pageUrl  = 'https://bigquery.googleapis.com/bigquery/v2/projects/' + projectId + '/queries/' + bqJobId + '?pageToken=' + encodeURIComponent(bqPageToken) + '&maxResults=10000' + (bqLoc ? ('&location=' + bqLoc) : '');
+        const pageRes  = await fetch(pageUrl, { headers: bqHeaders });
+        const pageBody = await pageRes.json();
+        if (!pageRes.ok || pageBody.error) {
+          console.error('BQ page error:', pageBody.error && pageBody.error.message);
+          break;
+        }
+        allBqRows = allBqRows.concat(normaliseBqRows(pageBody.rows));
+        console.log('BQ page ' + bqPageCount + ': total ' + allBqRows.length + ' rows');
+        bqPageToken = pageBody.pageToken;
+      }
+
+      console.log('BigQuery total rows fetched: ' + allBqRows.length);
+
+      // Coerce numeric strings → JS numbers so downstream aggregations work correctly
+      data = allBqRows.map(row => {
+        const out = {};
+        for (const key in row) {
+          const v = row[key];
+          if (v !== null && v !== '' && typeof v === 'string' && !isNaN(Number(v))) {
+            out[key] = Number(v);
+          } else {
+            out[key] = v;
+          }
+        }
+        return out;
+      });
+      // ── end BigQuery block — post-processing pipeline continues below ─────────
+
     } else if (syncConfig.sync_type === 'cloud_run') {
       const headers = {
         'Content-Type': 'application/json'
@@ -436,7 +629,6 @@ Deno.serve(async (req) => {
           const url = new URL(syncConfig.api_url);
           url.searchParams.set('offset', offset.toString());
           
-          // CRITICAL: Pass date range to Cloud Run API for backend filtering
           if (date_range?.start) {
             url.searchParams.set('start_date', date_range.start);
             console.log(`  Adding start_date parameter: ${date_range.start}`);
@@ -549,7 +741,6 @@ Deno.serve(async (req) => {
       } else {
         const url = new URL(syncConfig.api_url);
         
-        // CRITICAL: Pass date range for non-paginated APIs too
         if (date_range?.start) {
           url.searchParams.set('start_date', date_range.start);
           console.log(`  Adding start_date parameter: ${date_range.start}`);
@@ -631,19 +822,18 @@ Deno.serve(async (req) => {
       const beforeFilter = data.length;
       
       data = data.filter(row => {
-        // Try multiple common date field names
         const dateValue = row.date || row.created_date || row.timestamp || row.created_at || row.updated_date;
         
         if (!dateValue) {
           console.log(`⚠️  Row has no date field, keeping it`);
-          return true; // Keep rows without dates
+          return true;
         }
         
         const rowDate = new Date(dateValue);
         
         if (isNaN(rowDate.getTime())) {
           console.log(`⚠️  Invalid date: ${dateValue}, keeping it`);
-          return true; // Keep rows with invalid dates
+          return true;
         }
         
         const isInRange = rowDate >= startDate && rowDate <= endDate;
@@ -806,7 +996,6 @@ Deno.serve(async (req) => {
       console.log('\n=== AGGREGATION RESULTS ===');
       console.log(JSON.stringify(result, null, 2));
 
-      // Process calculated fields
       if (effectiveQueryConfig.calculated_fields && effectiveQueryConfig.calculated_fields.length > 0) {
         console.log(`\n=== PROCESSING ${effectiveQueryConfig.calculated_fields.length} CALCULATED FIELDS ===`);
         
@@ -827,7 +1016,6 @@ Deno.serve(async (req) => {
             let calcResult = 0;
             
             if (formulaType === 'case_when') {
-              // Handle CASE WHEN logic
               const caseStatements = calcField.case_statements || [];
               const elseExpression = calcField.else_expression || '';
               
@@ -845,13 +1033,13 @@ Deno.serve(async (req) => {
 
                 console.log(`  Checking condition: ${when_condition.field} ${when_condition.operator} ${when_condition.value} (type: ${when_condition.value_type})`);
                 
-                const isConditionMet = evaluateCondition({}, when_condition, result, result); // Pass result for both aggregations and calculatedFields
+                const isConditionMet = evaluateCondition({}, when_condition, result, result);
                 
                 console.log(`  Condition met: ${isConditionMet}`);
                 
                 if (isConditionMet) {
                   console.log(`  ✓ Evaluating THEN: ${then_expression}`);
-                  calcResult = evaluateSimpleFormula(then_expression, {}, result); // pass result as existingMetrics
+                  calcResult = evaluateSimpleFormula(then_expression, {}, result);
                   matched = true;
                   break;
                 }
@@ -859,7 +1047,7 @@ Deno.serve(async (req) => {
               
               if (!matched && elseExpression) {
                 console.log(`  No condition matched, evaluating ELSE: ${elseExpression}`);
-                calcResult = evaluateSimpleFormula(elseExpression, {}, result); // pass result as existingMetrics
+                calcResult = evaluateSimpleFormula(elseExpression, {}, result);
               } else if (!matched) {
                 console.log(`  No condition matched and no ELSE expression`);
                 calcResult = 0;
@@ -867,7 +1055,7 @@ Deno.serve(async (req) => {
               
               console.log(`  ✓ CASE WHEN Result: ${calcResult}`);
               
-            } else { // 'simple' formula type (existing logic)
+            } else {
               const formula = calcField.formula;
               
               if (!formula) {
@@ -952,7 +1140,6 @@ Deno.serve(async (req) => {
           resultVisible[displayName] = orderedMetricIds.includes(_metricId);
         });
 
-        // Handle calculated fields for grouped data
         if (effectiveQueryConfig.calculated_fields && effectiveQueryConfig.calculated_fields.length > 0) {
           effectiveQueryConfig.calculated_fields.forEach(calcField => {
             const fieldName = calcField.name;
@@ -966,7 +1153,6 @@ Deno.serve(async (req) => {
               let calcResult = 0;
               
               if (formulaType === 'case_when') {
-                // Handle CASE WHEN for grouped data
                 const caseStatements = calcField.case_statements || [];
                 const elseExpression = calcField.else_expression || '';
                 
@@ -979,7 +1165,7 @@ Deno.serve(async (req) => {
                     continue;
                   }
                   
-                  const isConditionMet = evaluateCondition({}, when_condition, result, result); // Pass result for both aggregations and calculatedFields
+                  const isConditionMet = evaluateCondition({}, when_condition, result, result);
                   
                   if (isConditionMet) {
                     calcResult = evaluateSimpleFormula(then_expression, {}, result);
@@ -994,7 +1180,7 @@ Deno.serve(async (req) => {
                   calcResult = 0;
                 }
                 
-              } else { // 'simple' formula for grouped data (existing logic)
+              } else {
                 const formula = calcField.formula;
                 
                 if (!formula) return;
@@ -1059,7 +1245,6 @@ Deno.serve(async (req) => {
       data = data.map(row => {
         const filtered = {};
         effectiveQueryConfig.columns.forEach(col => {
-          // Handle both string and object column formats
           const fieldName = typeof col === 'string' ? col : (col?.field || col);
           
           if (fieldName in row) {
