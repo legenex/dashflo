@@ -99,13 +99,14 @@ export default function TableWidget({ widget, metrics, dataSource, dateRange, cu
             <TableRow><TableCell colSpan={colMetrics.length + 1} className="text-center text-gray-500 py-8">No data</TableCell></TableRow>
           ) : limited.map((row, i) => (
             <TableRow key={i} className="border-white/10 hover:bg-white/5">
-              <TableCell className="text-white font-medium">{String(row[widget.dimension] ?? '—')}</TableCell>
+              <TableCell className="text-white font-medium">{String(row[widget.dimension] != null && typeof row[widget.dimension] !== 'object' ? row[widget.dimension] : '—')}</TableCell>
               {colMetrics.map(m => {
-                const val = row[m.field_id];
+                const rawVal = row[m.field_id];
+                const val = rawVal != null && typeof rawVal === 'object' && !Array.isArray(rawVal) ? (rawVal.value ?? '-') : rawVal;
                 const cfClass = applyCF(val, m.field_id, widget.conditional_formatting);
                 return (
                   <TableCell key={m.field_id} className={`text-right ${cfClass || (typeof val === 'number' && val < 0 ? 'text-red-400' : 'text-white')}`}>
-                    {formatValue(val, m.format)}
+                    {val == null ? '-' : formatValue(val, m.format)}
                   </TableCell>
                 );
               })}
