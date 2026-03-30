@@ -18,7 +18,7 @@ function applyCF(value, fieldId, rules = []) {
   return '';
 }
 
-export default function TableWidget({ widget, metrics, dataSource, dateRange, customFilters }) {
+export default function TableWidget({ widget, metrics, dataSource, syncType, dateRange, customFilters }) {
   const [sortField, setSortField] = useState(widget.sort_field || null);
   const [sortDir, setSortDir] = useState(widget.sort_direction || 'desc');
 
@@ -35,6 +35,7 @@ export default function TableWidget({ widget, metrics, dataSource, dateRange, cu
       if (!dataSource || !widget.dimension) return [];
       const res = await base44.functions.invoke('fetchWidgetData', {
         data_source: dataSource,
+        sync_type: syncType,
         query_config: { group_by: widget.dimension, aggregations, columns: [], filters: customFilters || [] },
         date_range: dateRange,
         custom_filters: customFilters || [],

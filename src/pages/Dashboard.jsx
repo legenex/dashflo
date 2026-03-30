@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCcw, Filter, Settings, ChevronDown, Plus, BarChart3 } from "lucide-react";
+import { RefreshCcw, Filter, Settings, ChevronDown, Plus, BarChart3, AlertCircle } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuTrigger, DropdownMenuSeparator,
@@ -141,10 +141,27 @@ export default function Dashboard() {
   }, [layout, allWidgets]);
 
   // ─── Active data source ────────────────────────────────────────────────────
+  const activeSync = useMemo(() => (
+    syncConfigs.find(c => c.sync_type === 'bigquery' && c.enabled && c.detected_schema) ||
+    syncConfigs.find(c => c.sync_type === 'bigquery' && c.enabled) ||
+    syncConfigs.find(c => c.enabled) ||
+    syncConfigs[0] ||
+    null
+  ), [syncConfigs]);
+
   const activeDataSource = useMemo(() => {
-    const s = syncConfigs.find(c => c.detected_schema && c.enabled) || syncConfigs[0];
-    return s?.local_table_name || s?.name;
-  }, [syncConfigs]);
+    if (!activeSync) return null;
+    return activeSync.local_table_name || activeSync.table_name || activeSync.name || null;
+  }, [activeSync]);
+
+  const activeSyncType = useMemo(() => activeSync?.sync_type || 'bigquery', [activeSync]);
+
+  useEffect(() => {
+    console.log('[Dashflo] syncConfigs:', syncConfigs);
+    console.log('[Dashflo] activeSync:', activeSync);
+    console.log('[Dashflo] activeDataSource:', activeDataSource);
+    console.log('[Dashflo] activeSyncType:', activeSyncType);
+  }, [syncConfigs, activeSync, activeDataSource, activeSyncType]);
 
   // ─── Global daily data fetch (for metric cards / stat bars) ───────────────
   const aggregations = useMemo(() => buildAggregationsFromMetrics(allMetrics), [allMetrics]);
@@ -155,6 +172,7 @@ export default function Dashboard() {
     if (!resolvedSource) return [];
     const res = await base44.functions.invoke('fetchWidgetData', {
       data_source: resolvedSource,
+      sync_type: activeSyncType,
       query_config: { group_by: 'date', aggregations, columns: [], filters: customFilters || [] },
       date_range: range,
       custom_filters: customFilters || [],
@@ -359,21 +377,36 @@ export default function Dashboard() {
           )}
         </div>
       ) : (
-        <WidgetCanvas
-          widgets={orderedWidgets}
-          metrics={allMetrics}
-          layout={layout}
-          dataSource={activeDataSource}
-          dateRange={dateRange}
-          customFilters={customFilters}
-          currentDailyData={currentDailyData}
-          priorDailyData={priorDailyData}
-          editMode={editMode}
-          onDragEnd={handleDragEnd}
-          onEditWidget={setConfigWidget}
-          onRemoveWidget={handleRemoveWidget}
-          onResizeWidget={handleResizeWidget}
-        />
+        <>
+          {!activeDataSource && syncConfigs.length > 0 && (
+            <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 flex items-center gap-3 text-yellow-400 text-sm">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>Data source found but not resolving — check that your sync config has a valid table name in Data Sync settings.</span>
+            </div>
+          )}
+          {syncConfigs.length === 0 && (
+            <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 flex items-center gap-3 text-yellow-400 text-sm">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>No data sources configured. Go to <strong>Data Sync</strong> to connect your BigQuery table or Cloud Run API.</span>
+            </div>
+          )}
+          <WidgetCanvas
+            widgets={orderedWidgets}
+            metrics={allMetrics}
+            layout={layout}
+            dataSource={activeDataSource}
+            syncType={activeSyncType}
+            dateRange={dateRange}
+            customFilters={customFilters}
+            currentDailyData={currentDailyData}
+            priorDailyData={priorDailyData}
+            editMode={editMode}
+            onDragEnd={handleDragEnd}
+            onEditWidget={setConfigWidget}
+            onRemoveWidget={handleRemoveWidget}
+            onResizeWidget={handleResizeWidget}
+          />
+        </>
       )}
 
       {/* ── Drawers & Modals ── */}

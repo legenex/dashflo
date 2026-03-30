@@ -10,10 +10,11 @@ import { buildAggregationsFromMetrics, formatValue, priorRange } from "../../../
 
 const COLORS = ['#00d4ff', '#a855f7', '#10b981', '#f59e0b', '#ef4444'];
 
-async function fetchChart(dataSource, dimension, aggregations, dateRange, customFilters) {
+async function fetchChart(dataSource, syncType, dimension, aggregations, dateRange, customFilters) {
   if (!dataSource || !dimension) return [];
   const res = await base44.functions.invoke('fetchWidgetData', {
     data_source: dataSource,
+    sync_type: syncType,
     query_config: { group_by: dimension, aggregations, columns: [], filters: customFilters || [] },
     date_range: dateRange,
     custom_filters: customFilters || [],
@@ -21,7 +22,7 @@ async function fetchChart(dataSource, dimension, aggregations, dateRange, custom
   return res.data || [];
 }
 
-export default function ChartWidget({ widget, metrics, dataSource, dateRange, customFilters }) {
+export default function ChartWidget({ widget, metrics, dataSource, syncType, dateRange, customFilters }) {
   const seriesMetrics = useMemo(
     () => (widget.metric_ids || []).map(fid => metrics.find(m => m.field_id === fid)).filter(Boolean),
     [widget.metric_ids, metrics]
@@ -31,14 +32,14 @@ export default function ChartWidget({ widget, metrics, dataSource, dateRange, cu
 
   const { data: currentData = [], isLoading: loadCurr } = useQuery({
     queryKey: ['chart', widget.id, 'curr', dataSource, dateRange, customFilters, widget.dimension],
-    queryFn: () => fetchChart(dataSource, widget.dimension, aggregations, dateRange, customFilters),
+    queryFn: () => fetchChart(dataSource, syncType, widget.dimension, aggregations, dateRange, customFilters),
     enabled: !!dataSource && !!widget.dimension,
     initialData: [],
   });
 
   const { data: priorData = [] } = useQuery({
     queryKey: ['chart', widget.id, 'prior', dataSource, prior, customFilters, widget.dimension],
-    queryFn: () => fetchChart(dataSource, widget.dimension, aggregations, prior, customFilters),
+    queryFn: () => fetchChart(dataSource, syncType, widget.dimension, aggregations, prior, customFilters),
     enabled: !!dataSource && !!widget.dimension && widget.show_comparison !== false,
     initialData: [],
   });

@@ -80,7 +80,7 @@ function WidgetWrapper({ widget, editMode, onEdit, onRemove, onResize, children 
 }
 
 export default function WidgetCanvas({
-  widgets, metrics, layout, dataSource, dateRange, customFilters,
+  widgets, metrics, layout, dataSource, syncType, dateRange, customFilters,
   currentDailyData, priorDailyData,
   editMode, onDragEnd, onEditWidget, onRemoveWidget, onResizeWidget
 }) {
@@ -126,6 +126,7 @@ export default function WidgetCanvas({
               widget={widget}
               metrics={metrics}
               dataSource={effectiveDataSource}
+              syncType={syncType}
               dateRange={dateRange}
               customFilters={customFilters}
             />
@@ -147,6 +148,7 @@ export default function WidgetCanvas({
               widget={widget}
               metrics={metrics}
               dataSource={effectiveDataSource}
+              syncType={syncType}
               dateRange={dateRange}
               customFilters={customFilters}
             />
