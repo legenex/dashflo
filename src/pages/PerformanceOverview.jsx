@@ -226,17 +226,20 @@ export default function PerformanceOverview() {
     return (res.data || []).sort((a,b) => new Date(b.date) - new Date(a.date));
   };
 
+  // Stable key for aggregations so query refetches when agg config changes
+  const aggKey = useMemo(() => aggregations.map(a => `${a.alias}:${a.function}`).join('|'), [aggregations]);
+
   const { data: dailyData = [], isFetching: loading, refetch } = useQuery({
-    queryKey: ['perf-daily', dateRange, dataSource, allActiveIds.join(',')],
+    queryKey: ['perf-daily', dateRange, dataSource, aggKey],
     queryFn: () => fetchDaily(dateRange),
-    enabled: !!dataSource && aggregations.length > 0,
+    enabled: !!dataSource,
     initialData: [],
   });
 
   const { data: priorData = [] } = useQuery({
-    queryKey: ['perf-prior', priorRange, dataSource, allActiveIds.join(',')],
+    queryKey: ['perf-prior', priorRange, dataSource, aggKey],
     queryFn: () => fetchDaily(priorRange),
-    enabled: !!dataSource && aggregations.length > 0,
+    enabled: !!dataSource,
     initialData: [],
   });
 
