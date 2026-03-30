@@ -2,15 +2,46 @@ import React, { useState, useEffect } from "react";
 import { Drawer } from "vaul";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Trash2, Check } from "lucide-react";
+import { X, Plus, Trash2, Check, ChevronDown } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 const DIMENSIONS = ['date','Buyer','Supplier','State','UTM Source','Accident SOL','Treatment_Time','Phone Verification','Lead Type','Vertical','Feedback','Source'];
+
+function DataSourceSelector({ cfg, update }) {
+  const { data: syncConfigs = [] } = useQuery({
+    queryKey: ['sync-configs-drawer'],
+    queryFn: () => base44.entities.SyncConfiguration.list(),
+    initialData: [],
+  });
+
+  if (syncConfigs.length === 0) {
+    return <p className="text-yellow-400 text-xs mt-1">No data sources configured — go to Data Sync to set one up</p>;
+  }
+
+  const selectedLabel = syncConfigs.find(s => (s.local_table_name || s.id) === cfg.data_source)?.name || 'Dashboard default';
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" className="w-full glass-card border-white/10 text-white mt-1 justify-between">
+          {selectedLabel}<ChevronDown className="w-4 h-4 ml-2 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="glass-card border-white/10 max-h-60 overflow-y-auto w-[--radix-dropdown-menu-trigger-width]" style={{ zIndex: 200 }}>
+        <DropdownMenuItem onSelect={() => update('data_source', '')} className={`text-white cursor-pointer ${!cfg.data_source ? 'bg-[#00d4ff]/20' : 'hover:bg-white/10'}`}>Dashboard default</DropdownMenuItem>
+        {syncConfigs.map(s => (
+          <DropdownMenuItem key={s.id} onSelect={() => update('data_source', s.local_table_name || s.id)} className={`text-white cursor-pointer ${cfg.data_source === (s.local_table_name || s.id) ? 'bg-[#00d4ff]/20' : 'hover:bg-white/10'}`}>{s.name}</DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 const CF_OPS = ['>','<','=','!=','>=','<='];
 const CF_COLORS = ['green','red','amber','blue','gray'];
 
@@ -27,12 +58,6 @@ export default function WidgetConfigDrawer({ open, onClose, widget, allMetrics, 
   const { toast } = useToast();
   const [cfg, setCfg] = useState({});
   useEffect(() => { if (widget) setCfg({ ...widget }); }, [widget]);
-
-  const { data: syncConfigs = [] } = useQuery({
-    queryKey: ['sync-configs'],
-    queryFn: () => base44.entities.SyncConfiguration.list(),
-    initialData: [],
-  });
 
   const save = useAutoSave(widget, allMetrics, toast);
 
@@ -86,35 +111,29 @@ export default function WidgetConfigDrawer({ open, onClose, widget, allMetrics, 
               <Input value={cfg.title || ''} onChange={e => update('title', e.target.value)} className="glass-card border-white/10 text-white mt-1" placeholder="Widget title" />
             </div>
 
-            {/* Data Source */}
-            <div>
-              <Label className="text-white text-xs">Data Source</Label>
-              {syncConfigs.length === 0 ? (
-                <p className="text-yellow-400 text-xs mt-1">No data sources configured — go to Data Sync to set one up</p>
-              ) : (
-                <Select value={cfg.data_source || ''} onValueChange={v => update('data_source', v)}>
-                  <SelectTrigger className="glass-card border-white/10 text-white mt-1"><SelectValue placeholder="Use dashboard default" /></SelectTrigger>
-                  <SelectContent className="glass-card border-white/10">
-                    <SelectItem value={null} className="text-gray-400">Use dashboard default</SelectItem>
-                    {syncConfigs.map(c => (
-                      <SelectItem key={c.id} value={c.local_table_name || c.id} className="text-white">{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
 
             {/* Metric Card */}
             {t === 'metric_card' && (
               <>
                 <div>
                   <Label className="text-white text-xs">Metric</Label>
-                  <Select value={(cfg.metric_ids || [])[0] || ''} onValueChange={v => update('metric_ids', [v])}>
-                    <SelectTrigger className="glass-card border-white/10 text-white mt-1"><SelectValue placeholder="Select metric" /></SelectTrigger>
-                    <SelectContent className="glass-card border-white/10 max-h-60">
-                      {allMetrics.map(m => <SelectItem key={m.field_id} value={m.field_id} className="text-white">{m.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full glass-card border-white/10 text-white mt-1 justify-between">
+                        {allMetrics.find(m => m.field_id === (cfg.metric_ids || [])[0])?.name || 'Select metric'}
+                        <ChevronDown className="w-4 h-4 ml-2 opacity-50" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="glass-card border-white/10 max-h-60 overflow-y-auto w-[--radix-dropdown-menu-trigger-width]" style={{ zIndex: 200 }}>
+                      {allMetrics.map(m => (
+                        <DropdownMenuItem key={m.field_id} onSelect={() => update('metric_ids', [m.field_id])} className={`text-white cursor-pointer ${(cfg.metric_ids || [])[0] === m.field_id ? 'bg-[#00d4ff]/20' : 'hover:bg-white/10'}`}>{m.name}</DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <div>
+                  <Label className="text-white text-xs">Data Source</Label>
+                  <DataSourceSelector cfg={cfg} update={update} />
                 </div>
                 <div>
                   <Label className="text-white text-xs">Col Span</Label>
