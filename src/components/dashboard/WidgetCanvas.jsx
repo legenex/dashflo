@@ -91,6 +91,7 @@ export default function WidgetCanvas({
     const type = widget.type;
     const heightPx = ROW_HEIGHT_PX[widget.row_height || 'default'];
     const heightStyle = { minHeight: `${heightPx}px` };
+    const effectiveDataSource = widget.data_source || dataSource;
 
     if (type === 'stat_bar') {
       return <StatBarWidget widget={widget} metrics={metrics} totals={currentTotals} />;
@@ -124,7 +125,7 @@ export default function WidgetCanvas({
             <TableWidget
               widget={widget}
               metrics={metrics}
-              dataSource={dataSource}
+              dataSource={effectiveDataSource}
               dateRange={dateRange}
               customFilters={customFilters}
             />
@@ -145,7 +146,7 @@ export default function WidgetCanvas({
             <ChartWidget
               widget={widget}
               metrics={metrics}
-              dataSource={dataSource}
+              dataSource={effectiveDataSource}
               dateRange={dateRange}
               customFilters={customFilters}
             />

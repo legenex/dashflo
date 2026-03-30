@@ -151,9 +151,10 @@ export default function Dashboard() {
   const prior = useMemo(() => priorRange(dateRange), [dateRange]);
 
   const fetchDaily = async (range) => {
-    if (!activeDataSource) return [];
+    const resolvedSource = activeDataSource || orderedWidgets.find(w => w.data_source)?.data_source;
+    if (!resolvedSource) return [];
     const res = await base44.functions.invoke('fetchWidgetData', {
-      data_source: activeDataSource,
+      data_source: resolvedSource,
       query_config: { group_by: 'date', aggregations, columns: [], filters: customFilters || [] },
       date_range: range,
       custom_filters: customFilters || [],
@@ -164,14 +165,14 @@ export default function Dashboard() {
   const { data: currentDailyData = [] } = useQuery({
     queryKey: ['daily-curr', dateRange, customFilters, activeDataSource],
     queryFn: () => fetchDaily(dateRange),
-    enabled: !!activeDataSource,
+    enabled: !!activeDataSource || orderedWidgets.some(w => !!w.data_source),
     initialData: [],
   });
 
   const { data: priorDailyData = [] } = useQuery({
     queryKey: ['daily-prior', prior, customFilters, activeDataSource],
     queryFn: () => fetchDaily(prior),
-    enabled: !!activeDataSource,
+    enabled: !!activeDataSource || orderedWidgets.some(w => !!w.data_source),
     initialData: [],
   });
 

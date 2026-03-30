@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Drawer } from "vaul";
 import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +27,12 @@ export default function WidgetConfigDrawer({ open, onClose, widget, allMetrics, 
   const { toast } = useToast();
   const [cfg, setCfg] = useState({});
   useEffect(() => { if (widget) setCfg({ ...widget }); }, [widget]);
+
+  const { data: syncConfigs = [] } = useQuery({
+    queryKey: ['sync-configs'],
+    queryFn: () => base44.entities.SyncConfiguration.list(),
+    initialData: [],
+  });
 
   const save = useAutoSave(widget, allMetrics, toast);
 
@@ -77,6 +84,24 @@ export default function WidgetConfigDrawer({ open, onClose, widget, allMetrics, 
             <div>
               <Label className="text-white text-xs">Title</Label>
               <Input value={cfg.title || ''} onChange={e => update('title', e.target.value)} className="glass-card border-white/10 text-white mt-1" placeholder="Widget title" />
+            </div>
+
+            {/* Data Source */}
+            <div>
+              <Label className="text-white text-xs">Data Source</Label>
+              {syncConfigs.length === 0 ? (
+                <p className="text-yellow-400 text-xs mt-1">No data sources configured — go to Data Sync to set one up</p>
+              ) : (
+                <Select value={cfg.data_source || ''} onValueChange={v => update('data_source', v)}>
+                  <SelectTrigger className="glass-card border-white/10 text-white mt-1"><SelectValue placeholder="Use dashboard default" /></SelectTrigger>
+                  <SelectContent className="glass-card border-white/10">
+                    <SelectItem value={null} className="text-gray-400">Use dashboard default</SelectItem>
+                    {syncConfigs.map(c => (
+                      <SelectItem key={c.id} value={c.local_table_name || c.id} className="text-white">{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             {/* Metric Card */}

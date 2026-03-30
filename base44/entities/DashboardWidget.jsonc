@@ -18,6 +18,10 @@
     "title": {
       "type": "string"
     },
+    "data_source": {
+      "type": "string",
+      "description": "The local_table_name or name of the SyncConfiguration this widget reads from. Overrides the dashboard global data source."
+    },
     "metric_ids": {
       "type": "array",
       "items": {
