@@ -219,8 +219,8 @@ export default function Dashboard() {
     queryClient.invalidateQueries(['dash-widgets']);
   };
 
-  const handleResizeWidget = async (widgetId, colSpan) => {
-    await base44.entities.DashboardWidget.update(widgetId, { col_span: colSpan });
+  const handleResizeWidget = async (widgetId, colSpan, rowHeight) => {
+    await base44.entities.DashboardWidget.update(widgetId, { col_span: colSpan, row_height: rowHeight });
     queryClient.invalidateQueries(['dash-widgets']);
   };
 

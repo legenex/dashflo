@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,56 @@ import ChartWidget from "./widgets/ChartWidget";
 import { aggregateRows } from "../../utils/metricUtils";
 
 const COL_SPAN_CLASS = { 1: 'col-span-1', 2: 'col-span-2', 3: 'col-span-3', 4: 'col-span-4' };
+const ROW_HEIGHT_PX = { compact: 160, default: 260, tall: 420 };
+const ROW_HEIGHT_KEYS = ['compact', 'default', 'tall'];
+
+function ResizeHandle({ widget, onResize }) {
+  const startRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
+
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      colSpan: widget.col_span || 2,
+      rowHeight: widget.row_height || 'default',
+    };
+    setDragging(true);
+
+    const handleMouseUp = (e) => {
+      const dx = e.clientX - startRef.current.x;
+      const dy = e.clientY - startRef.current.y;
+      // ~300px per column snap
+      const colDelta = Math.round(dx / 250);
+      const newCol = Math.min(4, Math.max(1, startRef.current.colSpan + colDelta));
+      // height snaps
+      const curHeightIdx = ROW_HEIGHT_KEYS.indexOf(startRef.current.rowHeight);
+      const heightDelta = Math.round(dy / 120);
+      const newHeightIdx = Math.min(2, Math.max(0, curHeightIdx + heightDelta));
+      const newHeight = ROW_HEIGHT_KEYS[newHeightIdx];
+      onResize(newCol, newHeight);
+      setDragging(false);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  return (
+    <div
+      onMouseDown={handleMouseDown}
+      className={`absolute bottom-1 right-1 z-30 w-5 h-5 cursor-se-resize flex items-center justify-center rounded ${
+        dragging ? 'bg-[#00d4ff]/40' : 'bg-white/10 hover:bg-[#00d4ff]/40'
+      } transition-colors`}
+      title="Drag to resize"
+    >
+      <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+        <path d="M1 7L7 1M4 7L7 4M7 7L7 7" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    </div>
+  );
+}
 
 function WidgetWrapper({ widget, editMode, onEdit, onRemove, onResize, children }) {
   return (
@@ -21,19 +71,7 @@ function WidgetWrapper({ widget, editMode, onEdit, onRemove, onResize, children 
             <Button size="icon" variant="ghost" onClick={onEdit} className="h-6 w-6 text-[#00d4ff] hover:bg-[#00d4ff]/20"><Pencil className="w-3 h-3" /></Button>
             <Button size="icon" variant="ghost" onClick={onRemove} className="h-6 w-6 text-red-400 hover:bg-red-500/20"><X className="w-3 h-3" /></Button>
           </div>
-          <div className="absolute top-2 left-2 z-20 flex gap-0.5">
-            {[1,2,3,4].map(n => (
-              <button
-                key={n}
-                onClick={() => onResize(n)}
-                className={`h-5 w-5 rounded text-[10px] font-bold transition-all ${
-                  (widget.col_span || 2) === n
-                    ? 'bg-[#00d4ff] text-white'
-                    : 'bg-black/40 text-gray-400 hover:bg-white/20 hover:text-white'
-                }`}
-              >{n}</button>
-            ))}
-          </div>
+          <ResizeHandle widget={widget} onResize={onResize} />
         </>
       )}
       {children}
@@ -50,7 +88,8 @@ export default function WidgetCanvas({
   const priorTotals   = React.useMemo(() => aggregateRows(priorDailyData,   metrics), [priorDailyData,   metrics]);
 
   function renderWidgetContent(widget) {
-    const type = widget.type;
+    const heightPx = ROW_HEIGHT_PX[widget.row_height || 'default'];
+    const heightStyle = { minHeight: `${heightPx}px` };
 
     if (type === 'stat_bar') {
       return <StatBarWidget widget={widget} metrics={metrics} totals={currentTotals} />;
@@ -60,19 +99,21 @@ export default function WidgetCanvas({
       const [fid] = widget.metric_ids || [];
       const metric = metrics.find(m => m.field_id === fid);
       return (
-        <MetricCardWidget
-          widget={widget}
-          metric={metric}
-          currentValue={currentTotals[fid]}
-          priorValue={priorTotals[fid]}
-          dailyData={currentDailyData}
-        />
+        <div style={heightStyle}>
+          <MetricCardWidget
+            widget={widget}
+            metric={metric}
+            currentValue={currentTotals[fid]}
+            priorValue={priorTotals[fid]}
+            dailyData={currentDailyData}
+          />
+        </div>
       );
     }
 
     if (type === 'table') {
       return (
-        <Card className="glass-card border-white/10">
+        <Card className="glass-card border-white/10" style={heightStyle}>
           {widget.title && (
             <CardHeader className="px-4 py-3">
               <CardTitle className="text-white text-sm font-bold uppercase tracking-wide">{widget.title}</CardTitle>
@@ -93,7 +134,7 @@ export default function WidgetCanvas({
 
     if (['line_chart', 'bar_chart', 'area_chart', 'combo_chart'].includes(type)) {
       return (
-        <Card className="glass-card border-white/10">
+        <Card className="glass-card border-white/10" style={heightStyle}>
           {widget.title && (
             <CardHeader className="px-4 py-3">
               <CardTitle className="text-white text-sm font-bold uppercase tracking-wide">{widget.title}</CardTitle>
@@ -141,7 +182,7 @@ export default function WidgetCanvas({
                     className={`${COL_SPAN_CLASS[w.col_span || 2]} ${snap.isDragging ? 'opacity-60 z-50' : ''}`}
                     style={drag.draggableProps.style}
                   >
-                    <WidgetWrapper widget={w} editMode={editMode} onEdit={() => onEditWidget(w)} onRemove={() => onRemoveWidget(w.id)} onResize={(n) => onResizeWidget(w.id, n)}>
+                    <WidgetWrapper widget={w} editMode={editMode} onEdit={() => onEditWidget(w)} onRemove={() => onRemoveWidget(w.id)} onResize={(col, height) => onResizeWidget(w.id, col, height)}>
                       {/* Drag handle */}
                       <div
                         {...drag.dragHandleProps}
