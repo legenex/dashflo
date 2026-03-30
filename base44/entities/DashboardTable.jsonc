@@ -1,0 +1,60 @@
+{
+  "name": "DashboardTable",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "dimension_field": {
+      "type": "string",
+      "description": "Primary grouping dimension column name"
+    },
+    "secondary_dimension": {
+      "type": "string"
+    },
+    "metric_field_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Ordered list of CustomMetric field_ids",
+      "default": []
+    },
+    "default_sort_field": {
+      "type": "string"
+    },
+    "default_sort_direction": {
+      "type": "string",
+      "enum": [
+        "asc",
+        "desc"
+      ],
+      "default": "desc"
+    },
+    "filters": {
+      "type": "object"
+    },
+    "conditional_formatting": {
+      "type": "object"
+    },
+    "is_pinned": {
+      "type": "boolean",
+      "default": false
+    },
+    "is_system": {
+      "type": "boolean",
+      "default": false
+    },
+    "position": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "name",
+    "dimension_field"
+  ]
+}

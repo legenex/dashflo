@@ -1,0 +1,65 @@
+{
+  "name": "CustomMetric",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Display label e.g. Net Profit Per Lead"
+    },
+    "field_id": {
+      "type": "string",
+      "description": "Unique slug e.g. net_profit_per_lead"
+    },
+    "source_field": {
+      "type": "string",
+      "description": "Actual BigQuery column name for base metrics"
+    },
+    "formula": {
+      "type": "string",
+      "description": "Expression using {field_id} tokens e.g. {profit} / {total_leads}"
+    },
+    "description": {
+      "type": "string"
+    },
+    "aggregation": {
+      "type": "string",
+      "enum": [
+        "SUM",
+        "AVG",
+        "COUNT",
+        "COUNT_DISTINCT",
+        "RATIO",
+        "FORMULA"
+      ],
+      "default": "SUM"
+    },
+    "format": {
+      "type": "string",
+      "enum": [
+        "currency",
+        "percent",
+        "number",
+        "integer"
+      ],
+      "default": "number"
+    },
+    "tier": {
+      "type": "string",
+      "enum": [
+        "system",
+        "approved",
+        "custom",
+        "experimental"
+      ],
+      "default": "custom"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name",
+    "field_id"
+  ]
+}

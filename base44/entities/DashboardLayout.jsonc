@@ -1,0 +1,43 @@
+{
+  "name": "DashboardLayout",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "data_source": {
+      "type": "string",
+      "description": "Active data source for this dashboard"
+    },
+    "stat_bar_metrics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "field_ids for summary stat bar",
+      "default": []
+    },
+    "kpi_metrics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "field_ids for KPI trend cards",
+      "default": []
+    },
+    "table_order": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Ordered DashboardTable IDs",
+      "default": []
+    },
+    "table_widths": {
+      "type": "object",
+      "description": "Width config per table_id: {id: 'full'|'half'}",
+      "additionalProperties": true
+    }
+  },
+  "required": []
+}
