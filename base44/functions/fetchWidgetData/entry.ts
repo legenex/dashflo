@@ -263,23 +263,43 @@ Deno.serve(async (req) => {
     }
 
     // ── Step 5: Aggregation ─────────────────────────────────────────────────
-    const aggregations = query_config.aggregations || [];
+    // Validate and filter aggregations — remove entries with missing fields
+    const validFunctions = new Set(['sum','count','avg','min','max','count_distinct','count_if','countdistinct']);
+    const rawAggregations = query_config.aggregations || [];
+    const aggregations = rawAggregations.filter(agg => {
+      if (!agg.field || !agg.alias) return false;
+      const fn = (agg.function || '').toLowerCase();
+      if (!validFunctions.has(fn)) {
+        console.warn(`[fetchWidgetData] Skipping invalid aggregation function "${agg.function}" for field "${agg.field}"`);
+        return false;
+      }
+      return true;
+    });
     const groupByRaw = query_config.group_by;
     const groupByFields = Array.isArray(groupByRaw)
       ? groupByRaw
       : (groupByRaw ? [groupByRaw] : []);
+
+    // Resolve a field name against a row, trying original, lowercase, underscore→space, and space→underscore variants
+    const resolveField = (row, field) => {
+      if (!field) return undefined;
+      const lower = field.toLowerCase();
+      const withSpaces = lower.replace(/_/g, ' ');
+      const withUnderscores = lower.replace(/ /g, '_');
+      return row[field] ?? row[lower] ?? row[withSpaces] ?? row[withUnderscores];
+    };
 
     const computeAgg = (rows, agg) => {
       const { field, function: fn, alias } = agg;
       const fieldLower = field?.toLowerCase();
       const col = alias || field;
       const fnUp = (fn || '').toUpperCase();
-      const vals = rows.map(r => r[field] ?? r[fieldLower]).filter(v => v != null);
+      const vals = rows.map(r => resolveField(r, field)).filter(v => v != null);
       const nums = vals.map(Number).filter(v => !isNaN(v));
       if (fnUp === 'COUNT_IF') {
         const filterVal = String(agg.value || '').toLowerCase();
         const count = rows.filter(r => {
-          const v = r[field] ?? r[fieldLower];
+          const v = resolveField(r, field);
           return String(v ?? '').toLowerCase() === filterVal;
         }).length;
         return [col, count];
@@ -297,13 +317,13 @@ Deno.serve(async (req) => {
       if (groupByFields.length > 0) {
         const groups = new Map();
         for (const row of data) {
-          const key = groupByFields.map(f => String(row[f] ?? row[f?.toLowerCase()] ?? '')).join('|||');
+          const key = groupByFields.map(f => String(resolveField(row, f) ?? '')).join('|||');
           if (!groups.has(key)) groups.set(key, []);
           groups.get(key).push(row);
         }
         data = Array.from(groups.entries()).map(([, rows]) => {
           const result = {};
-          groupByFields.forEach(f => { result[f] = rows[0][f] ?? rows[0][f?.toLowerCase()] ?? null; });
+          groupByFields.forEach(f => { result[f] = resolveField(rows[0], f) ?? null; });
           for (const agg of aggregations) {
             const [col, val] = computeAgg(rows, agg);
             result[col] = val;
