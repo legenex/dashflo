@@ -94,6 +94,23 @@ export default function WidgetCanvas({
     return aggregateRows(priorDailyData, metrics);
   }, [priorTotalsRaw, priorDailyData, metrics]);
 
+  // Resolve a metric_id that may be a raw source field (prefixed __src__)
+  const resolveMetric = (fid, totalsObj) => {
+    if (!fid) return { metric: undefined, value: undefined };
+    // check allMetrics first
+    const found = metrics.find(m => m.field_id === fid);
+    if (found) return { metric: found, value: totalsObj?.[fid] };
+    // source field: __src__FieldName
+    if (fid.startsWith('__src__')) {
+      const raw = fid.slice(7);
+      const synth = { field_id: fid, name: raw, format: 'number', source_field: raw };
+      // try exact, then lowercase
+      const val = totalsObj?.[raw] ?? totalsObj?.[raw.toLowerCase()];
+      return { metric: synth, value: val };
+    }
+    return { metric: undefined, value: undefined };
+  };
+
   function renderWidgetContent(widget) {
     const type = widget.type;
     const heightPx = ROW_HEIGHT_PX[widget.row_height || 'default'];
@@ -101,19 +118,38 @@ export default function WidgetCanvas({
     const effectiveDataSource = widget.data_source || dataSource;
 
     if (type === 'stat_bar') {
-      return <StatBarWidget widget={widget} metrics={metrics} totals={currentTotals} />;
+      // pass combinedMetrics awareness via a helper — resolve each metric_id
+      const resolvedMetrics = (widget.metric_ids || []).map(fid => {
+        const m = metrics.find(x => x.field_id === fid);
+        if (m) return m;
+        if (fid.startsWith('__src__')) {
+          const raw = fid.slice(7);
+          return { field_id: fid, name: raw, format: 'number', source_field: raw };
+        }
+        return null;
+      }).filter(Boolean);
+      // build augmented totals with __src__ keys resolved from raw totals
+      const augTotals = { ...currentTotals };
+      (widget.metric_ids || []).forEach(fid => {
+        if (fid.startsWith('__src__')) {
+          const raw = fid.slice(7);
+          augTotals[fid] = currentTotals?.[raw] ?? currentTotals?.[raw.toLowerCase()];
+        }
+      });
+      return <StatBarWidget widget={widget} metrics={resolvedMetrics} totals={augTotals} />;
     }
 
     if (type === 'metric_card') {
       const [fid] = widget.metric_ids || [];
-      const metric = metrics.find(m => m.field_id === fid);
+      const { metric, value: currVal } = resolveMetric(fid, currentTotals);
+      const { value: prevVal } = resolveMetric(fid, priorTotals);
       return (
         <div style={heightStyle}>
           <MetricCardWidget
             widget={widget}
             metric={metric}
-            currentValue={currentTotals[fid]}
-            priorValue={priorTotals[fid]}
+            currentValue={currVal}
+            priorValue={prevVal}
             dailyData={currentDailyData}
           />
         </div>
