@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { format, startOfMonth, endOfMonth, subMonths, subDays } from "date-fns";
-import { TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, Plus, X, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ResponsiveContainer, LineChart, Line, Tooltip, YAxis } from "recharts";
 
@@ -100,15 +100,22 @@ export default function PerformanceOverview() {
     return { start: format(ps, 'yyyy-MM-dd'), end: format(pe, 'yyyy-MM-dd') };
   }, [dateRange]);
 
-  // ── aggregations to send ──────────────────────────────────────────────────
-  const AGGS = [
-    { function: 'sum',      field: 'Revenue',    alias: 'Revenue' },
-    { function: 'sum',      field: 'Net_Revenue', alias: 'Net_Revenue' },
-    { function: 'sum',      field: 'Payout',     alias: 'Cost' },
-    { function: 'avg',      field: 'CPL',        alias: 'CPL' },
-    { function: 'sum',      field: 'Profit',     alias: 'Profit' },
-    { function: 'sum',      field: 'Net_Profit', alias: 'Net_Profit' },
+  // ── user-selected KPI metrics ──────────────────────────────────────────────
+  const DEFAULT_KPIS = [
+    { field: 'Revenue',    fn: 'sum', label: 'Revenue',     fmt: 'currency', color: '#00d4ff' },
+    { field: 'Net_Revenue',fn: 'sum', label: 'Net Revenue',  fmt: 'currency', color: '#a855f7' },
+    { field: 'Payout',     fn: 'sum', label: 'Cost',         fmt: 'currency', color: '#f97316' },
+    { field: 'CPL',        fn: 'avg', label: 'CPL',          fmt: 'currency', color: '#eab308' },
+    { field: 'Profit',     fn: 'sum', label: 'Profit',       fmt: 'currency', color: '#22c55e' },
+    { field: 'Net_Profit', fn: 'sum', label: 'Net Profit',   fmt: 'currency', color: '#ec4899' },
   ];
+  const [selectedKPIs, setSelectedKPIs] = useState(DEFAULT_KPIS);
+  const [showPicker, setShowPicker] = useState(false);
+
+  const KPI_COLORS = ['#00d4ff','#a855f7','#f97316','#eab308','#22c55e','#ec4899','#3b82f6','#14b8a6','#f43f5e','#84cc16'];
+
+  // ── aggregations to send ──────────────────────────────────────────────────
+  const AGGS = selectedKPIs.map(k => ({ function: k.fn, field: k.field, alias: k.label.replace(/ /g,'_') }));
 
   const AFFILIATE_AGGS = [
     { function: 'COUNT',    field: '*',          alias: 'Total_Leads' },
@@ -132,6 +139,27 @@ export default function PerformanceOverview() {
   ), [syncConfigs]);
 
   const dataSource = activeSync?.local_table_name || activeSync?.name || null;
+
+  // ── derive available fields from schema ────────────────────────────────────
+  const sourceFields = useMemo(() => {
+    const schema = activeSync?.detected_schema;
+    if (!schema) return [];
+    const fields = Array.isArray(schema) ? schema : (schema.fields || Object.entries(schema).map(([name, type]) => ({ name, type })));
+    return fields.filter(f => {
+      const t = (f.type || '').toLowerCase();
+      return t.includes('int') || t.includes('float') || t.includes('num') || t.includes('decimal') || t.includes('double') || t === 'number';
+    });
+  }, [activeSync]);
+
+  const addKPI = (field, fn = 'sum') => {
+    if (selectedKPIs.find(k => k.field === field && k.fn === fn)) return;
+    const color = KPI_COLORS[selectedKPIs.length % KPI_COLORS.length];
+    setSelectedKPIs(prev => [...prev, { field, fn, label: field, fmt: 'number', color }]);
+  };
+
+  const removeKPI = (idx) => setSelectedKPIs(prev => prev.filter((_, i) => i !== idx));
+
+  const updateKPIFn = (idx, fn) => setSelectedKPIs(prev => prev.map((k, i) => i === idx ? { ...k, fn } : k));
 
   // ── affiliate conversion fetch ───────────────────────────────────────────
   const fetchByAffiliate = async () => {
@@ -182,36 +210,33 @@ export default function PerformanceOverview() {
     initialData: [],
   });
 
-  // ── MTD totals ────────────────────────────────────────────────────────────
-  const totals = useMemo(() => ({
-    Revenue:     sum(dailyData, 'Revenue'),
-    Net_Revenue: sum(dailyData, 'Net_Revenue'),
-    Cost:        sum(dailyData, 'Cost'),
-    CPL:         avg(dailyData, 'CPL'),
-    Profit:      sum(dailyData, 'Profit'),
-    Net_Profit:  sum(dailyData, 'Net_Profit'),
-    Total:       dailyData.reduce((s, r) => s + (Number(r.Total) || 0), 0),
-    Sold:        dailyData.reduce((s, r) => s + (Number(r.Sold) || 0), 0),
-  }), [dailyData]);
+  // ── MTD totals (dynamic based on selectedKPIs) ───────────────────────────
+  const totals = useMemo(() => {
+    const t = {};
+    selectedKPIs.forEach(k => {
+      const alias = k.label.replace(/ /g,'_');
+      t[alias] = k.fn === 'avg' ? avg(dailyData, alias) : sum(dailyData, alias);
+    });
+    return t;
+  }, [dailyData, selectedKPIs]);
 
-  const priorTotals = useMemo(() => ({
-    Revenue:     sum(priorData, 'Revenue'),
-    Net_Revenue: sum(priorData, 'Net_Revenue'),
-    Cost:        sum(priorData, 'Cost'),
-    CPL:         avg(priorData, 'CPL'),
-    Profit:      sum(priorData, 'Profit'),
-    Net_Profit:  sum(priorData, 'Net_Profit'),
-  }), [priorData]);
+  const priorTotals = useMemo(() => {
+    const t = {};
+    selectedKPIs.forEach(k => {
+      const alias = k.label.replace(/ /g,'_');
+      t[alias] = k.fn === 'avg' ? avg(priorData, alias) : sum(priorData, alias);
+    });
+    return t;
+  }, [priorData, selectedKPIs]);
 
-  // ── KPI cards config ──────────────────────────────────────────────────────
-  const kpis = [
-    { label: 'Revenue',     key: 'Revenue',     sparkField: 'Revenue',     displayFmt: 'currency', color: '#00d4ff' },
-    { label: 'Net Revenue', key: 'Net_Revenue',  sparkField: 'Net_Revenue', displayFmt: 'currency', color: '#a855f7' },
-    { label: 'Cost',        key: 'Cost',         sparkField: 'Cost',        displayFmt: 'currency', color: '#f97316' },
-    { label: 'CPL',         key: 'CPL',          sparkField: 'CPL',         displayFmt: 'currency', color: '#eab308' },
-    { label: 'Profit',      key: 'Profit',       sparkField: 'Profit',      displayFmt: 'currency', color: '#22c55e' },
-    { label: 'Net Profit',  key: 'Net_Profit',   sparkField: 'Net_Profit',  displayFmt: 'currency', color: '#ec4899' },
-  ];
+  // ── KPI cards config (dynamic) ──────────────────────────────────────────
+  const kpis = selectedKPIs.map(k => ({
+    label: k.label,
+    key: k.label.replace(/ /g,'_'),
+    sparkField: k.label.replace(/ /g,'_'),
+    displayFmt: k.fmt,
+    color: k.color,
+  }));
 
   // ── daily table columns ───────────────────────────────────────────────────
   const TABLE_COLS = [
@@ -287,6 +312,66 @@ export default function PerformanceOverview() {
       )}
 
       {/* KPI Row */}
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">KPI Metrics</p>
+        <button onClick={() => setShowPicker(p => !p)} className="flex items-center gap-1 px-2 py-1 text-xs border border-white/10 rounded text-gray-400 hover:text-white hover:border-white/30 transition-all">
+          <Settings2 className="w-3 h-3" /> Configure
+        </button>
+      </div>
+
+      {/* Metric Picker */}
+      {showPicker && (
+        <div className="glass-card border border-white/10 rounded-xl p-4 space-y-3">
+          <p className="text-xs font-bold text-white uppercase tracking-wider">Select Metrics from Source</p>
+          {sourceFields.length === 0 ? (
+            <p className="text-gray-500 text-xs">No schema detected yet. Fetch schema in Data Sync settings first.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {sourceFields.map(f => {
+                const alreadyAdded = selectedKPIs.find(k => k.field === f.name);
+                return (
+                  <button
+                    key={f.name}
+                    onClick={() => alreadyAdded ? null : addKPI(f.name)}
+                    disabled={!!alreadyAdded}
+                    className={`px-2.5 py-1 text-xs rounded border font-medium transition-all ${
+                      alreadyAdded
+                        ? 'border-[#00d4ff]/40 bg-[#00d4ff]/10 text-[#00d4ff] cursor-default'
+                        : 'border-white/10 text-gray-400 hover:text-white hover:border-white/30 cursor-pointer'
+                    }`}
+                  >
+                    {alreadyAdded ? '✓ ' : '+ '}{f.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="border-t border-white/10 pt-3">
+            <p className="text-xs text-gray-500 mb-2">Active KPIs</p>
+            <div className="flex flex-wrap gap-2">
+              {selectedKPIs.map((k, idx) => (
+                <div key={idx} className="flex items-center gap-1 px-2 py-1 rounded border border-white/10 bg-white/5">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: k.color }} />
+                  <span className="text-xs text-white">{k.label}</span>
+                  <select
+                    value={k.fn}
+                    onChange={e => updateKPIFn(idx, e.target.value)}
+                    className="text-xs bg-transparent text-gray-400 border-none outline-none cursor-pointer ml-1"
+                  >
+                    <option value="sum">SUM</option>
+                    <option value="avg">AVG</option>
+                    <option value="COUNT">COUNT</option>
+                  </select>
+                  <button onClick={() => removeKPI(idx)} className="text-gray-600 hover:text-red-400 ml-1">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {kpis.map(kpi => (
           <KPISparkCard
