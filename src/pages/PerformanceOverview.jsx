@@ -103,7 +103,7 @@ export default function PerformanceOverview() {
   // ── user-selected KPI metrics ──────────────────────────────────────────────
   const DEFAULT_KPIS = [
     { field: 'Revenue',    fn: 'sum', label: 'Revenue',     fmt: 'currency', color: '#00d4ff' },
-    { field: 'Net_Revenue',fn: 'sum', label: 'Net Revenue',  fmt: 'currency', color: '#a855f7' },
+    { field: 'Net Revenue',fn: 'sum', label: 'Net Revenue',  fmt: 'currency', color: '#a855f7' },
     { field: 'Payout',     fn: 'sum', label: 'Cost',         fmt: 'currency', color: '#f97316' },
     { field: 'CPL',        fn: 'avg', label: 'CPL',          fmt: 'currency', color: '#eab308' },
     { field: 'Profit',     fn: 'sum', label: 'Profit',       fmt: 'currency', color: '#22c55e' },
