@@ -166,7 +166,7 @@ export default function WidgetConfigDrawer({ open, onClose, widget, allMetrics, 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" className="w-full glass-card border-white/10 text-white mt-1 justify-between">
-                        {allMetrics.find(m => m.field_id === (cfg.metric_ids || [])[0])?.name || 'Select metric'}
+                        {combinedMetrics.find(m => m.field_id === (cfg.metric_ids || [])[0])?.name || 'Select metric'}
                         <ChevronDown className="w-4 h-4 ml-2 opacity-50" />
                       </Button>
                     </DropdownMenuTrigger>
