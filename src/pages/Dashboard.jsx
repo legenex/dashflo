@@ -153,7 +153,22 @@ export default function Dashboard() {
   }, [syncConfigs, activeSync, activeDataSource, activeSyncType]);
 
   // ─── Global daily data fetch (for metric cards / stat bars) ───────────────
-  const aggregations = useMemo(() => buildAggregationsFromMetrics(allMetrics), [allMetrics]);
+  // Also include raw source fields used by widgets (__src__FieldName)
+  const aggregations = useMemo(() => {
+    const base = buildAggregationsFromMetrics(allMetrics);
+    const srcAggs = [];
+    orderedWidgets.forEach(w => {
+      (w.metric_ids || []).concat(w.column_ids || []).forEach(fid => {
+        if (fid && fid.startsWith('__src__')) {
+          const raw = fid.slice(7);
+          if (!base.find(a => a.alias === raw || a.field === raw) && !srcAggs.find(a => a.field === raw)) {
+            srcAggs.push({ function: 'sum', field: raw, alias: raw });
+          }
+        }
+      });
+    });
+    return [...base, ...srcAggs];
+  }, [allMetrics, orderedWidgets]);
   const prior = useMemo(() => priorRange(dateRange), [dateRange]);
 
   const fetchDaily = async (range) => {
