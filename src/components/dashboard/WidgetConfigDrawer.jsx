@@ -67,6 +67,38 @@ export default function WidgetConfigDrawer({ open, onClose, widget, allMetrics, 
   const [cfg, setCfg] = useState({});
   useEffect(() => { if (widget) setCfg({ ...widget }); }, [widget]);
 
+  // ── load source schema fields ────────────────────────────────────────────
+  const { data: syncConfigs = [] } = useQuery({
+    queryKey: ['sync-configs-drawer'],
+    queryFn: () => base44.entities.SyncConfiguration.list(),
+    initialData: [],
+  });
+
+  const sourceFields = React.useMemo(() => {
+    const activeSync = syncConfigs.find(s => {
+      const key = s.local_table_name || s.id;
+      return cfg.data_source ? key === cfg.data_source : (s.enabled || syncConfigs[0]?.id === s.id);
+    }) || syncConfigs.find(s => s.enabled) || syncConfigs[0];
+    const schema = activeSync?.detected_schema;
+    if (!schema) return [];
+    const fields = Array.isArray(schema)
+      ? schema
+      : (schema.fields || Object.entries(schema).map(([name, type]) => ({ name, type })));
+    return fields.map(f => ({
+      field_id: `__src__${f.name}`,
+      name: f.name,
+      format: 'number',
+      tier: 'source',
+      _rawField: f.name,
+    }));
+  }, [syncConfigs, cfg.data_source]);
+
+  // combined list: source fields first, then calculated metrics
+  const combinedMetrics = React.useMemo(() => [
+    ...sourceFields,
+    ...allMetrics.filter(m => !sourceFields.find(s => s.name === m.name)),
+  ], [sourceFields, allMetrics]);
+
   const save = useAutoSave(widget);
 
   const update = (key, value) => {
@@ -97,7 +129,13 @@ export default function WidgetConfigDrawer({ open, onClose, widget, allMetrics, 
 
   if (!widget) return null;
   const t = widget.type;
-  const colMetrics = (cfg.column_ids || []).map(fid => allMetrics.find(m => m.field_id === fid)).filter(Boolean);
+  const colMetrics = (cfg.column_ids || []).map(fid => combinedMetrics.find(m => m.field_id === fid)).filter(Boolean);
+
+  const MetricBadge = ({ m }) => (
+    <Badge className={`text-[10px] ${m.tier === 'source' ? 'bg-blue-500/20 text-blue-300' : 'bg-white/10 text-white'}`}>
+      {m.tier === 'source' ? 'source' : (m.format || 'calc')}
+    </Badge>
+  );
 
   return (
     <Drawer.Root open={open} onOpenChange={v => !v && onClose()} direction="right">
@@ -133,6 +171,11 @@ export default function WidgetConfigDrawer({ open, onClose, widget, allMetrics, 
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="glass-card border-white/10 max-h-60 overflow-y-auto w-[--radix-dropdown-menu-trigger-width]" style={{ zIndex: 200 }}>
+                      {sourceFields.length > 0 && <div className="px-2 py-1 text-[10px] text-blue-400 uppercase tracking-wider font-bold">Source Fields</div>}
+                      {sourceFields.map(m => (
+                        <DropdownMenuItem key={m.field_id} onSelect={() => update('metric_ids', [m.field_id])} className={`text-white cursor-pointer ${(cfg.metric_ids || [])[0] === m.field_id ? 'bg-[#00d4ff]/20' : 'hover:bg-white/10'}`}>{m.name}</DropdownMenuItem>
+                      ))}
+                      {allMetrics.length > 0 && <div className="px-2 py-1 text-[10px] text-gray-500 uppercase tracking-wider font-bold mt-1">Calculated Metrics</div>}
                       {allMetrics.map(m => (
                         <DropdownMenuItem key={m.field_id} onSelect={() => update('metric_ids', [m.field_id])} className={`text-white cursor-pointer ${(cfg.metric_ids || [])[0] === m.field_id ? 'bg-[#00d4ff]/20' : 'hover:bg-white/10'}`}>{m.name}</DropdownMenuItem>
                       ))}
@@ -168,8 +211,9 @@ export default function WidgetConfigDrawer({ open, onClose, widget, allMetrics, 
             {t === 'stat_bar' && (
               <div>
                 <Label className="text-white text-xs">Metrics (ordered)</Label>
+                {sourceFields.length > 0 && <p className="text-[10px] text-blue-400 mt-1">Source fields shown in blue</p>}
                 <div className="space-y-1 mt-2 max-h-64 overflow-y-auto">
-                  {allMetrics.map(m => {
+                  {combinedMetrics.map(m => {
                     const sel = (cfg.metric_ids || []).includes(m.field_id);
                     return (
                       <button key={m.field_id} onClick={() => update('metric_ids', sel ? (cfg.metric_ids||[]).filter(x=>x!==m.field_id) : [...(cfg.metric_ids||[]), m.field_id])}
@@ -178,7 +222,7 @@ export default function WidgetConfigDrawer({ open, onClose, widget, allMetrics, 
                           {sel && <Check className="w-2.5 h-2.5 text-white" />}
                         </div>
                         <span className="text-white flex-1">{m.name}</span>
-                        <Badge className="bg-white/10 text-white text-[10px]">{m.format}</Badge>
+                        <MetricBadge m={m} />
                       </button>
                     );
                   })}
@@ -210,6 +254,15 @@ export default function WidgetConfigDrawer({ open, onClose, widget, allMetrics, 
                     <Select onValueChange={v => { if (!(cfg.column_ids||[]).includes(v)) update('column_ids', [...(cfg.column_ids||[]), v]); }}>
                       <SelectTrigger className="glass-card border-white/10 text-[#00d4ff] mt-1"><SelectValue placeholder="+ Add column" /></SelectTrigger>
                       <SelectContent className="glass-card border-white/10 max-h-60">
+                        {sourceFields.filter(m => !(cfg.column_ids||[]).includes(m.field_id)).length > 0 && (
+                          <div className="px-2 py-1 text-[10px] text-blue-400 uppercase tracking-wider font-bold">Source Fields</div>
+                        )}
+                        {sourceFields.filter(m => !(cfg.column_ids||[]).includes(m.field_id)).map(m => (
+                          <SelectItem key={m.field_id} value={m.field_id} className="text-white">{m.name}</SelectItem>
+                        ))}
+                        {allMetrics.filter(m => !(cfg.column_ids||[]).includes(m.field_id)).length > 0 && (
+                          <div className="px-2 py-1 text-[10px] text-gray-500 uppercase tracking-wider font-bold">Calculated</div>
+                        )}
                         {allMetrics.filter(m => !(cfg.column_ids||[]).includes(m.field_id)).map(m => (
                           <SelectItem key={m.field_id} value={m.field_id} className="text-white">{m.name}</SelectItem>
                         ))}
@@ -283,8 +336,9 @@ export default function WidgetConfigDrawer({ open, onClose, widget, allMetrics, 
                 </div>
                 <div>
                   <Label className="text-white text-xs">Y-Axis Metrics (up to 3)</Label>
+                  {sourceFields.length > 0 && <p className="text-[10px] text-blue-400 mt-1">Source fields shown in blue</p>}
                   <div className="space-y-1 mt-2 max-h-52 overflow-y-auto">
-                    {allMetrics.map(m => {
+                    {combinedMetrics.map(m => {
                       const sel = (cfg.metric_ids||[]).includes(m.field_id);
                       const disabled = !sel && (cfg.metric_ids||[]).length >= 3;
                       return (
@@ -292,6 +346,7 @@ export default function WidgetConfigDrawer({ open, onClose, widget, allMetrics, 
                           className={`w-full text-left p-2 rounded flex items-center gap-2 text-sm border ${sel ? 'bg-[#00d4ff]/10 border-[#00d4ff]/30' : disabled ? 'border-transparent opacity-40' : 'border-transparent hover:bg-white/5'}`}>
                           <div className={`w-3.5 h-3.5 rounded border shrink-0 ${sel ? 'bg-[#00d4ff] border-[#00d4ff]' : 'border-white/20'}`} />
                           <span className="text-white flex-1">{m.name}</span>
+                          <MetricBadge m={m} />
                         </button>
                       );
                     })}
