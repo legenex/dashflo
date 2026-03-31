@@ -135,13 +135,14 @@ export default function Layout({ children, currentPageName }) {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
     } catch (error) {
-      console.error("Error loading user:", error);
+      // Silently ignore auth errors on initial load (401 race condition)
     }
   };
 
   const loadNotifications = async () => {
     try {
       const currentUser = await base44.auth.me();
+      if (!currentUser) return;
       const notifs = await base44.entities.Notification.filter(
         { user_id: currentUser.id },
         "-created_date",
@@ -150,7 +151,7 @@ export default function Layout({ children, currentPageName }) {
       setNotifications(notifs);
       setUnreadCount(notifs.filter(n => !n.read).length);
     } catch (error) {
-      console.error("Error loading notifications:", error);
+      // Silently ignore auth errors on initial load
     }
   };
 

@@ -154,6 +154,22 @@ export default function Dashboard() {
 
   // ─── Global daily data fetch (for metric cards / stat bars) ───────────────
   // Also include raw source fields used by widgets (__src__FieldName)
+  const numericSchemaFields = useMemo(() => {
+    const schema = activeSync?.detected_schema;
+    if (!schema) return null; // null = unknown, allow all
+    const fields = Array.isArray(schema)
+      ? schema
+      : (schema.fields || Object.entries(schema).map(([name, type]) => ({ name, type })));
+    const numericTypes = new Set();
+    fields.forEach(f => {
+      const t = (f.type || '').toLowerCase();
+      if (t.includes('int') || t.includes('float') || t.includes('num') || t.includes('decimal') || t.includes('double') || t === 'number') {
+        numericTypes.add(f.name);
+      }
+    });
+    return numericTypes;
+  }, [activeSync]);
+
   const aggregations = useMemo(() => {
     const base = buildAggregationsFromMetrics(allMetrics);
     const srcAggs = [];
@@ -161,6 +177,8 @@ export default function Dashboard() {
       (w.metric_ids || []).concat(w.column_ids || []).forEach(fid => {
         if (fid && fid.startsWith('__src__')) {
           const raw = fid.slice(7);
+          // Skip non-numeric fields to avoid BigQuery errors
+          if (numericSchemaFields !== null && !numericSchemaFields.has(raw)) return;
           if (!base.find(a => a.alias === raw || a.field === raw) && !srcAggs.find(a => a.field === raw)) {
             srcAggs.push({ function: 'sum', field: raw, alias: raw });
           }
@@ -168,7 +186,8 @@ export default function Dashboard() {
       });
     });
     return [...base, ...srcAggs];
-  }, [allMetrics, orderedWidgets]);
+  }, [allMetrics, orderedWidgets, numericSchemaFields]);
+
   const prior = useMemo(() => priorRange(dateRange), [dateRange]);
 
   const fetchDaily = async (range) => {
