@@ -110,6 +110,14 @@ export default function PerformanceOverview() {
     { function: 'sum',      field: 'Net_Profit', alias: 'Net_Profit' },
   ];
 
+  const AFFILIATE_AGGS = [
+    { function: 'COUNT',    field: '*',          alias: 'Total_Leads' },
+    { function: 'COUNT_IF', field: 'status',     alias: 'Sold_Leads',   value: 'sold' },
+    { function: 'sum',      field: 'Revenue',    alias: 'Revenue' },
+    { function: 'sum',      field: 'Payout',     alias: 'Cost' },
+    { function: 'avg',      field: 'CPL',        alias: 'CPL' },
+  ];
+
   // ── resolve data source ───────────────────────────────────────────────────
   const { data: syncConfigs = [] } = useQuery({
     queryKey: ['sync-configs-perf'],
@@ -124,6 +132,29 @@ export default function PerformanceOverview() {
   ), [syncConfigs]);
 
   const dataSource = activeSync?.local_table_name || activeSync?.name || null;
+
+  // ── affiliate conversion fetch ───────────────────────────────────────────
+  const fetchByAffiliate = async () => {
+    if (!dataSource) return [];
+    const res = await base44.functions.invoke('fetchWidgetData', {
+      data_source: dataSource,
+      query_config: { group_by: 'source', aggregations: AFFILIATE_AGGS, columns: [], filters: [] },
+      date_range: dateRange,
+      custom_filters: [],
+    });
+    const rows = (res.data || []).map(r => ({
+      ...r,
+      conv_rate: r.Total_Leads > 0 ? (r.Sold_Leads / r.Total_Leads) * 100 : 0,
+    }));
+    return rows.sort((a, b) => b.Revenue - a.Revenue);
+  };
+
+  const { data: affiliateData = [], isFetching: loadingAffiliate } = useQuery({
+    queryKey: ['perf-affiliate', dateRange, dataSource],
+    queryFn: fetchByAffiliate,
+    enabled: !!dataSource,
+    initialData: [],
+  });
 
   // ── daily grouped fetch (for sparklines + table) ──────────────────────────
   const fetchDaily = async (range) => {
@@ -271,6 +302,56 @@ export default function PerformanceOverview() {
         ))}
       </div>
 
+      {/* Affiliate Conversion Rate Table */}
+      <div className="glass-card border border-white/10 rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-[#a855f7] text-xs font-bold uppercase tracking-wider">Affiliate</span>
+            <span className="text-white text-xs font-bold uppercase tracking-wider">Conversion Rates by Source</span>
+          </div>
+          {loadingAffiliate && <RefreshCw className="w-3 h-3 text-gray-500 animate-spin" />}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/10 bg-white/5">
+                {[{l:'Source',a:'left'},{l:'Total Leads',a:'right'},{l:'Sold',a:'right'},{l:'Conv. Rate',a:'right'},{l:'Revenue',a:'right'},{l:'Cost',a:'right'},{l:'CPL',a:'right'}].map(col => (
+                  <th key={col.l} className={`px-3 py-2 text-xs font-bold text-gray-300 uppercase tracking-wide whitespace-nowrap text-${col.a}`}>{col.l}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loadingAffiliate ? (
+                Array.from({length: 5}).map((_, i) => (
+                  <tr key={i} className="border-b border-white/5">
+                    {Array.from({length: 7}).map((_, j) => <td key={j} className="px-3 py-2"><div className="h-4 bg-white/5 rounded animate-pulse" /></td>)}
+                  </tr>
+                ))
+              ) : affiliateData.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500 text-sm">No data for this period</td></tr>
+              ) : (
+                affiliateData.map((row, idx) => (
+                  <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                    <td className="px-3 py-2 text-white font-medium">{row.source || '—'}</td>
+                    <td className="px-3 py-2 text-right text-white">{fmt.integer(row.Total_Leads)}</td>
+                    <td className="px-3 py-2 text-right text-white">{fmt.integer(row.Sold_Leads)}</td>
+                    <td className="px-3 py-2 text-right">
+                      <span className={`font-bold ${
+                        row.conv_rate >= 20 ? 'text-green-400' :
+                        row.conv_rate >= 10 ? 'text-yellow-400' : 'text-red-400'
+                      }`}>{fmt.percent(row.conv_rate)}</span>
+                    </td>
+                    <td className="px-3 py-2 text-right text-white">{fmt.currency(row.Revenue)}</td>
+                    <td className="px-3 py-2 text-right text-white">{fmt.currency(row.Cost)}</td>
+                    <td className="px-3 py-2 text-right text-white">{fmt.currency(row.CPL)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Daily table + MTD panel */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
 
@@ -322,7 +403,6 @@ export default function PerformanceOverview() {
                     </tr>
                   ))
                 )}
-                {/* Grand total row */}
                 {grandTotal && (
                   <tr className="border-t-2 border-white/20 bg-white/5 font-bold">
                     {TABLE_COLS.map(col => {
