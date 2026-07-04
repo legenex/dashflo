@@ -3,9 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Copy, Globe, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Copy, Globe, GripVertical, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { GlassPanel, Chip, GradientButton, SectionLabel } from "@/components/ui/primitives";
 import { act } from "@/lib/client-api";
+
+// Report Settings: the management surface. The reports themselves live in the
+// sidebar tree (Reports > Supplier Performance > LeadFlow Performance, ...).
+// Here you clone, edit, delete, publish, and drag to reorder.
 
 interface PageRow {
   id: string; name: string; slug: string; kind: string; description: string | null;
@@ -26,23 +30,90 @@ export function ReportsIndexClient({
   suppliers: Array<{ id: string; name: string }>;
 }) {
   const router = useRouter();
+  const [generic, setGeneric] = useState(pages.filter((p) => !p.entityId));
+  const [entityPages, setEntityPages] = useState(pages.filter((p) => p.entityId));
   const [cloneFor, setCloneFor] = useState<PageRow | null>(null);
   const [cloneEntity, setCloneEntity] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const generic = pages.filter((p) => !p.entityId);
-  const entityPages = pages.filter((p) => p.entityId);
+  const [dragId, setDragId] = useState<string | null>(null);
 
   const cloneOptions = cloneFor?.kind === "supplier" ? suppliers : buyers;
+
+  const persistOrder = async (nextGeneric: PageRow[], nextEntity: PageRow[]) => {
+    await act("report.pages.reorder", { ids: [...nextGeneric, ...nextEntity].map((p) => p.id) });
+    router.refresh();
+  };
+
+  const handleDrop = (list: PageRow[], setList: (v: PageRow[]) => void, targetId: string, isGeneric: boolean) => {
+    if (!dragId || dragId === targetId) return;
+    const fromIdx = list.findIndex((p) => p.id === dragId);
+    const toIdx = list.findIndex((p) => p.id === targetId);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const next = [...list];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    setList(next);
+    setDragId(null);
+    void persistOrder(isGeneric ? next : generic, isGeneric ? entityPages : next);
+  };
+
+  const row = (p: PageRow, list: PageRow[], setList: (v: PageRow[]) => void, isGeneric: boolean) => (
+    <div
+      key={p.id}
+      draggable
+      onDragStart={() => setDragId(p.id)}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={() => handleDrop(list, setList, p.id, isGeneric)}
+      onDragEnd={() => setDragId(null)}
+      className={`flex items-center gap-3 border-b border-[rgba(38,43,77,0.5)] px-3 py-2.5 last:border-0 ${
+        dragId === p.id ? "opacity-40" : "hover:bg-[rgba(26,31,66,0.4)]"
+      }`}
+    >
+      <span className="cursor-grab text-label active:cursor-grabbing" title="Drag to reorder">
+        <GripVertical size={14} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <Link href={`/reports/view/${p.slug}`} className="text-sm font-semibold text-title hover:text-accent">
+          {p.name}
+        </Link>
+        <div className="truncate text-[11px] text-label">{p.description}</div>
+      </div>
+      <Chip tone="info">{KIND_LABEL[p.kind] ?? p.kind}</Chip>
+      {p.entityName && <Chip tone="queued">{p.entityName}</Chip>}
+      {p.portalVisible && <Chip tone="verified"><Globe size={9} /> portal</Chip>}
+      {p.isDefault && <Chip tone="dim">default</Chip>}
+      <span className="flex gap-0.5">
+        <Link href={`/reports/view/${p.slug}?edit=1`} className="rounded p-1.5 text-label hover:text-title" title="Edit">
+          <Pencil size={13} />
+        </Link>
+        <button type="button" className="cursor-pointer rounded p-1.5 text-label hover:text-title" title="Clone" onClick={() => { setCloneFor(p); setCloneEntity(""); }}>
+          <Copy size={13} />
+        </button>
+        <button
+          type="button"
+          className="cursor-pointer rounded p-1.5 text-label hover:text-danger"
+          title="Delete"
+          onClick={async () => {
+            if (!confirm(`Delete report page "${p.name}"?`)) return;
+            await act("report.page.delete", { id: p.id });
+            setList(list.filter((x) => x.id !== p.id));
+            router.refresh();
+          }}
+        >
+          <Trash2 size={13} />
+        </button>
+      </span>
+    </div>
+  );
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-title">Reports</h1>
+          <h1 className="text-xl font-bold text-title">Report Settings</h1>
           <p className="text-xs text-label">
-            Performance report pages: customizable cards, widgets, and filters. Clone a buyer or supplier page to
-            publish it to their portal.
+            Reports open straight from the sidebar tree. Manage them here: drag to reorder the sidebar, clone,
+            edit, delete, and publish partner pages to portals.
           </p>
         </div>
         <div className="flex gap-2">
@@ -66,30 +137,30 @@ export function ReportsIndexClient({
         <Link className="text-accent hover:underline" href="/reports/scheduled">Scheduled Briefs</Link>
       </div>
 
-      <SectionLabel>Report pages</SectionLabel>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {generic.map((p) => (
-          <PageCard key={p.id} page={p} onClone={() => { setCloneFor(p); setCloneEntity(""); }} />
-        ))}
+      <div>
+        <SectionLabel className="mb-1.5">Report pages (drag to reorder the sidebar)</SectionLabel>
+        <GlassPanel className="overflow-hidden">
+          {generic.map((p) => row(p, generic, setGeneric, true))}
+          {generic.length === 0 && <div className="p-6 text-center text-xs text-label">No report pages. Restore defaults to get the standard six.</div>}
+        </GlassPanel>
       </div>
 
-      <SectionLabel>Partner pages (per buyer / supplier)</SectionLabel>
-      {entityPages.length === 0 ? (
-        <GlassPanel className="p-4 text-xs text-label">
-          No partner pages yet. Clone Buyer Performance or Supplier Performance for a specific partner, then flip
-          Portal on so they can see it when they log in.
+      <div>
+        <SectionLabel className="mb-1.5">Partner pages (nested under their kind in the sidebar)</SectionLabel>
+        <GlassPanel className="overflow-hidden">
+          {entityPages.map((p) => row(p, entityPages, setEntityPages, false))}
+          {entityPages.length === 0 && (
+            <div className="p-6 text-center text-xs text-label">
+              Clone Buyer Performance or Supplier Performance for a specific partner, then flip Portal on so they
+              see it when they log in.
+            </div>
+          )}
         </GlassPanel>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {entityPages.map((p) => (
-            <PageCard key={p.id} page={p} onClone={() => { setCloneFor(p); setCloneEntity(""); }} />
-          ))}
-        </div>
-      )}
+      </div>
 
       {cloneFor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(4,6,20,0.75)] p-4" onClick={() => setCloneFor(null)}>
-          <GlassPanel className="df-gradient-border w-full max-w-md space-y-3 p-5" >
+          <GlassPanel className="df-gradient-border w-full max-w-md p-5">
             <div onClick={(e) => e.stopPropagation()} className="space-y-3">
               <div className="text-sm font-bold text-title">Clone &quot;{cloneFor.name}&quot;</div>
               {(cloneFor.kind === "buyer" || cloneFor.kind === "supplier") && (
@@ -128,42 +199,5 @@ export function ReportsIndexClient({
         </div>
       )}
     </div>
-  );
-}
-
-function PageCard({ page, onClone }: { page: PageRow; onClone: () => void }) {
-  const router = useRouter();
-  return (
-    <GlassPanel className="flex flex-col p-4">
-      <div className="flex items-start gap-2">
-        <Link href={`/reports/view/${page.slug}`} className="min-w-0 flex-1">
-          <div className="text-sm font-bold text-title hover:text-accent">{page.name}</div>
-          <div className="mt-0.5 line-clamp-2 text-[11px] text-label">{page.description}</div>
-        </Link>
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <Chip tone="info">{KIND_LABEL[page.kind] ?? page.kind}</Chip>
-        {page.entityName && <Chip tone="queued">{page.entityName}</Chip>}
-        {page.portalVisible && <Chip tone="verified"><Globe size={9} /> portal</Chip>}
-        {page.isDefault && <Chip tone="dim">default</Chip>}
-        <span className="ml-auto flex gap-1">
-          <button type="button" className="cursor-pointer rounded p-1 text-label hover:text-title" title="Clone" onClick={onClone}>
-            <Copy size={13} />
-          </button>
-          <button
-            type="button"
-            className="cursor-pointer rounded p-1 text-label hover:text-danger"
-            title="Delete"
-            onClick={async () => {
-              if (!confirm(`Delete report page "${page.name}"?`)) return;
-              await act("report.page.delete", { id: page.id });
-              router.refresh();
-            }}
-          >
-            <Trash2 size={13} />
-          </button>
-        </span>
-      </div>
-    </GlassPanel>
   );
 }

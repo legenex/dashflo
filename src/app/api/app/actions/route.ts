@@ -1152,6 +1152,17 @@ const handlers: Record<string, Handler> = {
     return apiOk({ ok: true });
   },
 
+  "report.pages.reorder": async (ctx, payload) => {
+    const p = z.object({ ids: z.array(z.string()).min(1) }).parse(payload);
+    for (const [index, id] of p.ids.entries()) {
+      await ctx.db
+        .update(schema.reportPages)
+        .set({ sortOrder: index + 1 })
+        .where(and(eq(schema.reportPages.id, id), eq(schema.reportPages.organizationId, ctx.organizationId)));
+    }
+    return apiOk({ ok: true });
+  },
+
   "report.pages.restoreDefaults": async (ctx) => {
     const created = await seedDefaultReportPages(ctx.organizationId);
     return apiOk({ ok: true, created });

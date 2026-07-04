@@ -8,11 +8,17 @@ import {
   Settings, BookOpen, ChevronDown, Grid2x2, ShieldCheck, Menu, X,
 } from "lucide-react";
 
+export interface ReportNavItem {
+  label: string;
+  href: string;
+  children?: ReportNavItem[];
+}
+
 interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
-  children?: Array<{ label: string; href: string }>;
+  children?: ReportNavItem[];
 }
 
 const NAV: NavItem[] = [
@@ -31,12 +37,7 @@ const NAV: NavItem[] = [
   { label: "Reconciliation", href: "/reconciliation", icon: <Scale size={16} /> },
   {
     label: "Reports", href: "/reports", icon: <BarChart3 size={16} />,
-    children: [
-      { label: "Report Pages", href: "/reports" },
-      { label: "P&L", href: "/reports/pnl" },
-      { label: "Ad Performance", href: "/reports/ad-performance" },
-      { label: "Scheduled", href: "/reports/scheduled" },
-    ],
+    children: [], // filled at render time from the org's report pages
   },
   {
     label: "AI Analyst", href: "/ai/chat", icon: <Sparkles size={16} />,
@@ -59,14 +60,18 @@ export function Sidebar({
   isPlatformAdmin,
   accent,
   role = "owner",
+  reportNav = [],
 }: {
   isPlatformAdmin: boolean;
   accent?: string;
   role?: string;
+  reportNav?: ReportNavItem[];
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const items = role === "partner" ? PARTNER_NAV : NAV;
+  const items = (role === "partner" ? PARTNER_NAV : NAV).map((item) =>
+    item.label === "Reports" ? { ...item, children: reportNav } : item
+  );
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href.split("/").slice(0, 2).join("/"));
@@ -101,23 +106,42 @@ export function Sidebar({
             >
               {item.icon}
               <span className="flex-1">{item.label}</span>
-              {item.children && <ChevronDown size={13} className={active ? "rotate-180" : ""} />}
+              {item.children && item.children.length > 0 && (
+                <ChevronDown size={13} className={active ? "rotate-180" : ""} />
+              )}
             </Link>
-            {item.children && active && (
+            {item.children && item.children.length > 0 && active && (
               <div className="ml-8 mt-0.5 flex flex-col gap-0.5 border-l border-panelborder pl-2">
                 {item.children.map((child) => (
-                  <Link
-                    key={child.href}
-                    href={child.href}
-                    onClick={() => setMobileOpen(false)}
-                    className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
-                      pathname === child.href || pathname.startsWith(`${child.href}/`)
-                        ? "text-accent"
-                        : "text-label hover:text-body"
-                    }`}
-                  >
-                    {child.label}
-                  </Link>
+                  <div key={child.href}>
+                    <Link
+                      href={child.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={`block rounded px-2 py-1 text-xs font-medium transition-colors ${
+                        pathname === child.href || pathname.startsWith(`${child.href}/`)
+                          ? "text-accent"
+                          : "text-label hover:text-body"
+                      }`}
+                    >
+                      {child.label}
+                    </Link>
+                    {child.children && child.children.length > 0 && (
+                      <div className="ml-2 flex flex-col gap-0.5 border-l border-[rgba(38,43,77,0.6)] pl-2">
+                        {child.children.map((grandchild) => (
+                          <Link
+                            key={grandchild.href}
+                            href={grandchild.href}
+                            onClick={() => setMobileOpen(false)}
+                            className={`block truncate rounded px-2 py-0.5 text-[11px] transition-colors ${
+                              pathname === grandchild.href ? "text-accent" : "text-label hover:text-body"
+                            }`}
+                          >
+                            {grandchild.label}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
