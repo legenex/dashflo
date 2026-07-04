@@ -1,0 +1,183 @@
+@import "tailwindcss";
+
+/* DashFlo design tokens: holographic command center, dark only */
+:root {
+  --bg: #0b0e23;
+  --panel: #151936;
+  --panel-border: #262b4d;
+  --elevated: #1a1f42;
+  --grad-from: #3b82f6;
+  --grad-to: #8b5cf6;
+  --cyan: #22d3ee;
+  --verified: #22c55e;
+  --error: #ef4444;
+  --queued: #a78bfa;
+  --info: #60a5fa;
+  --warning: #f59e0b;
+  --unmatched: #f97316;
+  --title: #ffffff;
+  --body: #c7cce6;
+  --label: #8a91b4;
+  --radius: 12px;
+}
+
+@theme {
+  --color-bg: #0b0e23;
+  --color-panel: #151936;
+  --color-panelborder: #262b4d;
+  --color-elevated: #1a1f42;
+  --color-gradfrom: #3b82f6;
+  --color-gradto: #8b5cf6;
+  --color-accent: #22d3ee;
+  --color-verified: #22c55e;
+  --color-danger: #ef4444;
+  --color-queued: #a78bfa;
+  --color-info: #60a5fa;
+  --color-warning: #f59e0b;
+  --color-unmatched: #f97316;
+  --color-title: #ffffff;
+  --color-body: #c7cce6;
+  --color-label: #8a91b4;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--body);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  background-image: radial-gradient(circle, rgba(138, 145, 180, 0.10) 1px, transparent 1px);
+  background-size: 26px 26px;
+  min-height: 100vh;
+}
+
+::selection {
+  background: rgba(139, 92, 246, 0.45);
+  color: #fff;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #262b4d transparent;
+}
+
+/* label style used app-wide */
+.df-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--label);
+  font-weight: 600;
+}
+
+.font-mono-money {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* glass panel */
+.df-panel {
+  background: linear-gradient(180deg, rgba(26, 31, 66, 0.55), rgba(21, 25, 54, 0.92));
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 rgba(199, 204, 230, 0.05), 0 8px 30px rgba(4, 6, 20, 0.45);
+  backdrop-filter: blur(10px);
+  position: relative;
+}
+
+.df-panel-hover {
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.df-panel-hover:hover {
+  border-color: rgba(139, 92, 246, 0.55);
+  box-shadow: inset 0 1px 0 rgba(199, 204, 230, 0.06), 0 0 0 1px rgba(59, 130, 246, 0.25),
+    0 10px 34px rgba(59, 130, 246, 0.12);
+}
+
+/* animated gradient border for focused panels */
+@property --df-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.df-gradient-border {
+  position: relative;
+}
+.df-gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--df-angle), #3b82f6, #8b5cf6, #22d3ee, #3b82f6);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: df-rotate 5s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes df-rotate {
+  to { --df-angle: 360deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .df-gradient-border::before { animation: none; }
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* skeleton shimmer */
+.df-skeleton {
+  background: linear-gradient(100deg, #1a1f42 40%, #232a56 50%, #1a1f42 60%);
+  background-size: 200% 100%;
+  animation: df-shimmer 1.4s ease infinite;
+  border-radius: 8px;
+}
+@keyframes df-shimmer {
+  to { background-position: -200% 0; }
+}
+
+/* neon glows keyed to semantics */
+.df-glow-verified { box-shadow: 0 0 18px rgba(34, 197, 94, 0.18), inset 0 0 12px rgba(34, 197, 94, 0.05); }
+.df-glow-danger { box-shadow: 0 0 18px rgba(239, 68, 68, 0.20), inset 0 0 12px rgba(239, 68, 68, 0.06); }
+.df-glow-warning { box-shadow: 0 0 18px rgba(245, 158, 11, 0.16); }
+.df-glow-accent { box-shadow: 0 0 18px rgba(34, 211, 238, 0.16); }
+
+.df-grad-text {
+  background: linear-gradient(90deg, var(--grad-from), var(--grad-to));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.df-grad-bg {
+  background: linear-gradient(90deg, var(--grad-from), var(--grad-to));
+}
+
+/* live dot pulse */
+@keyframes df-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+.df-live-dot {
+  animation: df-pulse 1.6s ease infinite;
+}
+
+/* ticker scroll for the activity strip */
+@keyframes df-ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+input, select, textarea {
+  color-scheme: dark;
+}
+
+code, pre {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+}

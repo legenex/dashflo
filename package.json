@@ -1,0 +1,51 @@
+{
+  "name": "dashflo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DashFlo, the lead distribution and revenue truth platform",
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "concurrently -n app,buyers -c blue,magenta \"next dev -p 4780\" \"node mockbuyer/server.mjs\"",
+    "build": "next build",
+    "start": "next start -p 4780",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "insights": "tsx src/scripts/run-insights.ts",
+    "smoke": "node scripts/browser-smoke.mjs",
+    "mockbuyers": "node mockbuyer/server.mjs",
+    "db:migrate": "tsx src/scripts/migrate.ts",
+    "db:seed": "tsx src/scripts/seed-cli.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.57.0",
+    "@auth/core": "^0.40.0",
+    "@electric-sql/pglite": "^0.3.6",
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.13.9",
+    "bcryptjs": "^3.0.2",
+    "drizzle-orm": "^0.44.2",
+    "framer-motion": "^12.18.1",
+    "lucide-react": "^0.518.0",
+    "next": "^15.3.4",
+    "next-auth": "5.0.0-beta.29",
+    "postgres": "^3.4.7",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "recharts": "^2.15.3",
+    "zod": "^3.25.67"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^9.8.0",
+    "@tailwindcss/postcss": "^4.1.10",
+    "@types/node": "^22.15.32",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "concurrently": "^9.1.2",
+    "drizzle-kit": "^0.31.1",
+    "playwright-core": "^1.61.1",
+    "tailwindcss": "^4.1.10",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}
